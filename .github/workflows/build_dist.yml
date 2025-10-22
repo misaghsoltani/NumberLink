@@ -94,6 +94,11 @@ jobs:
           cache: false
           locked: true
 
+      - name: System deps for pygame
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libfreetype6-dev
+
       - name: Build (hatch via pixi task)
         run: |
           set -eo pipefail
