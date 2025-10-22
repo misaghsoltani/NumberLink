@@ -42,3 +42,9 @@ div.highlight {
   padding: 0.5rem 0.75rem;
   border-bottom: 1px solid rgba(15, 23, 42, 0.06);
 }
+
+/* GIF spacing: give a small gap between images when placed side-by-side */
+.quickstart-gif {
+  margin-right: 12px;
+  margin-bottom: 12px;
+}

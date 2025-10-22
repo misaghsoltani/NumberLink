@@ -22,6 +22,26 @@ NumberLink boards follow these invariants:
 - Bridge cells yield independent vertical and horizontal lanes governed by :attr:`numberlink.config.VariantConfig.bridges_enabled`.
 - Diagonal moves are allowed only when :attr:`numberlink.config.VariantConfig.allow_diagonal` is set. Cell switching is controlled by :attr:`numberlink.config.VariantConfig.cell_switching_mode`.
 
+.. image:: _static/gifs/quickstart_must_fill.gif
+   :alt: Must fill variant example
+   :width: 160px
+   :class: quickstart-gif
+
+.. image:: _static/gifs/quickstart_cell_switching.gif
+   :alt: Cell switching variant example
+   :width: 160px
+   :class: quickstart-gif
+
+.. image:: _static/gifs/quickstart_path.gif
+   :alt: Default path building example
+   :width: 160px
+   :class: quickstart-gif
+
+.. image:: _static/gifs/quickstart_bridges_diagonal.gif
+   :alt: Bridges and diagonal variant example
+   :width: 160px
+   :class: quickstart-gif
+
 Quick Install
 -------------
 
@@ -95,27 +115,6 @@ Human mode viewer
    env = gym.make("NumberLinkRGB-v0", render_mode="human")
    viewer = NumberLinkViewer(env)
    viewer.loop()
-
-Quick Start Visuals
-~~~~~~~~~~~~~~~~~~~
-
-The GIFs below replay :meth:`numberlink.env.NumberLinkRGBEnv.get_solution` for representative variants. Regenerate them with `examples/generate_gifs.py <https://github.com/misaghsoltani/NumberLink/blob/main/examples/generate_gifs.py>`_ or scripts based on :func:`numberlink.level_setup.build_level_template`.
-
-.. image:: _static/gifs/quickstart_must_fill.gif
-   :alt: Must fill variant example
-   :width: 170px
-
-.. image:: _static/gifs/quickstart_cell_switching.gif
-   :alt: Cell switching variant example
-   :width: 170px
-
-.. image:: _static/gifs/quickstart_path.gif
-   :alt: Default path building example
-   :width: 170px
-
-.. image:: _static/gifs/quickstart_bridges_diagonal.gif
-   :alt: Bridges and diagonal variant example
-   :width: 170px
 
 .. toctree::
    :maxdepth: 2
