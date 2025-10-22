@@ -13,13 +13,13 @@
 
 <br/>
 
-A Gymnasium environment for the NumberLink puzzle game.
-
-<br/>
-
 <p align="center">
   <img alt="NumberLink Logo" src="https://raw.githubusercontent.com/misaghsoltani/NumberLink/master/docs/_static/numberlink-logo.svg" />
 </p>
+
+<br/>
+
+A Gymnasium environment for the NumberLink puzzle game.
 
 ## Gameplay Rules
 
