@@ -150,12 +150,6 @@ extra ``numberlink[notebook]`` is installed. Either instantiate
 If the extras are missing, the viewer emits a short installation hint instead of trying to open a pygame window in the
 notebook runtime.
 
-.. figure:: ../output/vector_scenarios.gif
-   :alt: Batched environments advancing in parallel.
-   :width: 70%
-
-   Vector environments make it easy to step many puzzles at once for data collection or evaluation.
-
 Command Line Interface
 ----------------------
 
