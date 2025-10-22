@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from importlib import import_module
+import os
 from pathlib import Path
 import sys
 from typing import TYPE_CHECKING, cast
@@ -1467,10 +1468,15 @@ def _detect_notebook_environment() -> str:
     if shell is None:
         return "none"
 
+    if "google.colab" in sys.modules or os.environ.get("COLAB_RELEASE_TAG"):
+        return "colab"
+
     shell_name: str = shell.__class__.__name__
+    shell_module: str = shell.__class__.__module__
     if shell_name == "ZMQInteractiveShell":
-        if "google.colab" in sys.modules:
-            return "colab"
+        return "jupyter"
+
+    if shell_module.startswith("ipykernel.") or getattr(shell, "kernel", None) is not None:
         return "jupyter"
 
     return "none"

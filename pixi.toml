@@ -16,7 +16,7 @@ ci = "pixi run -e dev check && pixi run -e test test-coverage && pixi run -e doc
 
 [package]
 name = "numberlink"
-version = "0.1.2"
+version = "0.1.3"
 
 
 [package.build]
@@ -48,7 +48,7 @@ dev = { features = [
 ], solve-group = "default" }
 doc = { features = ["doc"] }
 test = { features = ["test"], solve-group = "default, doc" }
-build = { features = ["build"], solve-group = "default" }
+build = { features = ["build", "notebook"], solve-group = "default" }
 all = { features = ["dev", "build", "test", "doc"], solve-group = "default" }
 notebook = { features = ["notebook"], solve-group = "default" }
 glibc217 = { features = [

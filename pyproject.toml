@@ -147,7 +147,7 @@ test = [
     "tox>=4.31.0,<5",
     "pillow>=12.0.0,<13",
 ]
-build = [{ include-group = "default" }, "hatch"]
+build = [{ include-group = "default" }, { include-group = "notebook" }, "hatch"]
 all = [
     { include-group = "default" },
     { include-group = "dev" },
