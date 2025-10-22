@@ -1,0 +1,25 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run random example",
+			"type": "shell",
+			"command": "python examples/run_random.py",
+			"args": [],
+			"problemMatcher": [
+				"$python"
+			],
+			"group": "test"
+		},
+		{
+			"label": "Run human mode",
+			"type": "shell",
+			"command": "python examples/run_human.py",
+			"args": [],
+			"problemMatcher": [
+				"$python"
+			],
+			"group": "test"
+		}
+	]
+}

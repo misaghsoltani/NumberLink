@@ -1,0 +1,16 @@
+repos:
+  - repo: local
+    hooks:
+      - id: update-readme-citation
+        name: Update README BibTeX from CITATION.cff (pixi)
+        language: system
+        entry: pixi run -e dev update-citation
+        pass_filenames: false
+        files: ^(CITATION\.cff|README\.md)$
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.1
+    hooks:
+      - id: ruff-check
+        args: [--fix, --unsafe-fixes]
+      - id: ruff-format

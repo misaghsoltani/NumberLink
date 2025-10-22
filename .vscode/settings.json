@@ -1,0 +1,477 @@
+{
+    // ========== PYTHON CONFIGURATION ==========
+    "python.defaultInterpreterPath": "${workspaceFolder}/.pixi/envs/dev/bin/python",
+    // "python.pixiToolPath": "${PIXI_EXE}",
+    "python-envs.pythonProjects": [],
+    // "python.envFile": "${workspaceFolder}/.env",
+    "pixi-vscode.defaultChannels": [
+        "https://prefix.dev/conda-forge",
+        "conda-forge"
+    ],
+    "pixi-vscode.defaultProjectType": "pyproject",
+    "pixi-code.pixiExecutable": "pixi",
+    "python-envs.defaultEnvManager": "renan-r-santos.pixi-code:pixi",
+    "python-envs.defaultPackageManager": "renan-r-santos.pixi-code:pixi",
+    "python.pixiToolPath": "pixi",
+    "python.analysis.autoFormatStrings": true,
+    "python.analysis.autoIndent": true,
+    "python.analysis.enableColorPicker": true,
+    // "python.analysis.enableTroubleshootMissingImports": true,
+    "python.analysis.aiCodeActions": {
+        "implementAbstractClasses": true,
+        "convertFormatString": true,
+        "convertLambdaToNamedFunction": true,
+        "generateDocstring": true,
+        "generateSymbol": true,
+    },
+    "python.analysis.supportDocstringTemplate": true,
+    // "python.analysis.typeCheckingMode": "standard",
+    "python.analysis.aiHoverSummaries": true,
+    "python.analysis.enableAsyncProgram": true,
+    // "python.analysis.enablePrecomputeContext": true,
+    // "python.analysis.fixAll": [
+    //     "source.convertImportFormat",
+    //     "source.unusedImports"
+    // ],
+    "python.analysis.generateWithTypeAnnotation": true,
+    "python.analysis.includeAliasesFromUserFiles": true,
+    "python.analysis.inlayHints.callArgumentNames": "all",
+    "python.analysis.inlayHints.functionReturnTypes": true,
+    "python.analysis.inlayHints.pytestParameters": true,
+    "python.analysis.inlayHints.variableTypes": true,
+    // "python.analysis.nodeExecutable": "auto",
+    // "python.analysis.typeEvaluation.deprecateTypingAliases": true,
+    // "python.analysis.typeEvaluation.enableReachabilityAnalysis": true,
+    // "python.analysis.typeEvaluation.strictDictionaryInference": true,
+    // "python.analysis.typeEvaluation.strictListInference": true,
+    // "python.analysis.typeEvaluation.strictSetInference": true,
+    // "python.analysis.diagnosticsSource": "Pyright",
+    "python.analysis.persistAllIndices": true,
+    // "python.locator": "native",
+    "python.useEnvironmentsExtension": true,
+    // "python-envs.terminal.autoActivationType": "shellStartup",
+    "python.terminal.activateEnvironment": true,
+    "python.terminal.activateEnvInCurrentTerminal": true,
+    // "python.analysis.extraPaths": [
+    //     "${workspaceFolder}/.pixi/envs/dev/lib/python3.12/site-packages",
+    //     "${workspaceFolder}/.pixi/envs/lib/python3.12/site-packages",
+    //     "${workspaceFolder}/numberlink",
+    // ],
+    // ========== PYTHON ANALYSIS & INTELLISENSE ==========
+    "python.analysis.autoImportCompletions": true,
+    // "python.analysis.cacheLSPData": true,
+    "python.analysis.completeFunctionParens": true,
+    // "python.analysis.typeCheckingMode": "basic",
+    // "python.analysis.autoSearchPaths": true,
+    // "python.analysis.stubPath": "${workspaceFolder}/.pixi/envs/dev/lib/python3.12/site-packages",
+    "python.analysis.indexing": true,
+    // ========== TESTING CONFIGURATION ==========
+    // "python.testing.pytestPath": "${workspaceFolder}/.pixi/envs/test/bin/pytest",
+    // "python.testing.pytestEnabled": true,
+    // "python.testing.unittestEnabled": true,
+    // "python.testing.pytestArgs": [
+    //     "tests",
+    //     "--maxfail=1",
+    //     "--disable-warnings",
+    //     "-q",
+    //     "--cov=numberlink",
+    //     "--cov-report=term-missing"
+    // ],
+    // "python.testing.autoTestDiscoverOnSaveEnabled": true,
+    // "python.testing.cwd": "${workspaceFolder}",
+    // ========== LINTING & FORMATTING ==========
+    "ruff.configurationPreference": "filesystemFirst",
+    "ruff.lint.enable": true,
+    "ruff.fixAll": true,
+    "ruff.importStrategy": "fromEnvironment",
+    "ruffRulesExplainer.showDecorations": true,
+    "ruff.lineLength": 120,
+    "ruff.exclude": [
+        "**/.pixi/",
+        "**/outputs/",
+        "**/logs/",
+        "**/checkpoints/",
+        "**/slurm_run_outputs/",
+        "**/.git/",
+        "**/.venv/",
+        "**/node_modules/",
+        "**/bower_components/",
+        "**/.mypy_cache/",
+        "**/.pytest_cache/",
+        "**/.tox/",
+        "**/.DS_Store/",
+        "**/.ruff_cache/",
+        "**/*.egg-info/",
+        "**/build/",
+        "**/dist/"
+    ],
+    "ruff.nativeServer": "on",
+    // MyPy Configuration
+    "mypy-type-checker.args": [
+        "--config-file=${workspaceFolder}/mypy.ini",
+        "--use-fine-grained-cache",
+        "--follow-imports=skip",
+    ],
+    "mypy-type-checker.importStrategy": "fromEnvironment",
+    // "mypy-type-checker.interpreter": [
+    //     "${workspaceFolder}/.pixi/envs/dev/bin/python"
+    // ],
+    "mypy-type-checker.daemonStatusFile": "${workspaceFolder}/.mypy_cache/mypy-daemon.json",
+    "mypy-type-checker.preferDaemon": true,
+    "mypy-type-checker.reportingScope": "workspace",
+    "mypy-type-checker.cwd": "${workspaceFolder}",
+    "mypy-type-checker.ignorePatterns": [
+        "**/site-packages/**",
+        ".vscode/**",
+        "**/.pixi/**",
+        "**/outputs/**",
+        "**/logs/**",
+        "**/checkpoints/**",
+        "**/slurm_run_outputs/**",
+        "**/.git/**",
+        "**/.venv/**",
+        "**/.mypy_cache/**",
+        "**/.pytest_cache/**",
+        "**/.tox/**",
+        "**/.DS_Store/**",
+        "**/.ruff_cache/**",
+        "**/docs/_build/**",
+        "**/docs/_autosummary/**",
+    ],
+    "shellcheck.enable": true,
+    "shellcheck.enableQuickFix": true,
+    "shellcheck.run": "onType",
+    "shellcheck.executablePath": "${workspaceFolder}/.pixi/envs/dev/bin/shellcheck", // Priority: user defined > bundled binary > shellcheck in PATH
+    "shellcheck.exclude": [],
+    "shellcheck.customArgs": [
+        "-x"
+    ],
+    // ========== EDITOR CONFIGURATION ==========
+    "editor.formatOnSave": false,
+    // "editor.codeActionsOnSave": {
+    //     // "source.fixAll": "explicit",
+    //     "source.organizeImports": "explicit",
+    //     // "source.fixAll.ruff": "explicit"
+    // },
+    "editor.rulers": [
+        120
+    ],
+    // "editor.wordWrap": "off",
+    // "editor.wordWrapColumn": 120,
+    "editor.insertSpaces": true,
+    "editor.tabSize": 4,
+    "editor.detectIndentation": true,
+    "editor.autoIndentOnPaste": true,
+    "editor.bracketPairColorization.enabled": true,
+    // "editor.experimentalGpuAcceleration": "on",
+    "editor.showDeprecated": true,
+    "editor.showUnused": true,
+    "editor.matchBrackets": "always",
+    "editor.unicodeHighlight.nonBasicASCII": true,
+    "editor.unicodeHighlight.ambiguousCharacters": true,
+    "editor.unicodeHighlight.invisibleCharacters": true,
+    "editor.unicodeHighlight.includeComments": true,
+    "editor.unicodeHighlight.includeStrings": true,
+    // ========== TERMINAL CONFIGURATION ==========
+    "direnv.restart.automatic": true,
+    "terminal.integrated.env.linux": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "PIXI_PROJECT_ROOT": "${workspaceFolder}"
+    },
+    "terminal.integrated.env.osx": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "PIXI_PROJECT_ROOT": "${workspaceFolder}"
+    },
+    "terminal.integrated.env.windows": {
+        "PYTHONPATH": "${workspaceFolder}",
+        "PIXI_PROJECT_ROOT": "${workspaceFolder}"
+    },
+    // ========== FILE ASSOCIATIONS ==========
+    "files.associations": {
+        "*.toml": "toml",
+        "pixi.lock": "yaml",
+        "*.yaml": "yaml",
+        "*.yml": "yaml",
+        "*.py": "python",
+        "*.pyx": "python",
+        "*.pyi": "python",
+        "*.ipynb": "jupyter",
+        "*.md": "markdown",
+        "*.txt": "plaintext",
+        "*.log": "log",
+        "*.conf": "ini",
+        "*.cfg": "ini",
+        "*.env": "properties"
+    },
+    "evenBetterToml.schema.associations": {
+        "pyproject.toml": "https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/pyproject.json",
+        "ruff.toml": "https://raw.githubusercontent.com/astral-sh/ruff/main/ruff.schema.json",
+    },
+    "yaml.schemaStore.enable": true,
+    "json.schemaDownload.enable": true,
+    "yaml.schemaStore.url": "https://www.schemastore.org/api/json/catalog.json",
+    "yaml.completion": true,
+    // ========== SEARCH & EXCLUDE CONFIGURATION ==========
+    "search.exclude": {
+        "**/.pixi": true,
+        "**/__pycache__": true,
+        "**/.pytest_cache": true,
+        "**/.mypy_cache": true,
+        "**/.ruff_cache": true,
+        "**/.tox": true,
+        "**/*.egg-info": true,
+        // "**/build": true,
+        // "**/dist": true,
+    },
+    "files.exclude": {
+        // "**/.pixi": true,
+        "**/__pycache__": true,
+        // "**/.pytest_cache": true,
+        // "**/.mypy_cache": true,
+        // "**/.ruff_cache": true,
+        // "**/*.egg-info": true
+    },
+    "files.watcherExclude": {
+        "**/.pixi/**": true,
+        "**/__pycache__/**": true,
+        "**/.pytest_cache/**": true,
+        "**/.mypy_cache/**": true,
+        "**/.ruff_cache/**": true,
+        "**/.tox/**": true,
+        "**/*.egg-info/**": true,
+        "**/build/**": true,
+        "**/dist/**": true,
+        "**/.git/**": true,
+        "**/.venv/**": true,
+        "**/node_modules/**": true,
+        "**/bower_components/**": true,
+        "**/logs/**": true,
+        "**/outputs/**": true,
+        "**/checkpoints/**": true,
+        "**/docs/_build/**": true,
+        "**/docs/_autosummary/**": true,
+        // "**/typings/**": true,
+        ".git": true
+    },
+    // ========== JUPYTER NOTEBOOK CONFIGURATION ==========
+    "notebook.cellToolbarLocation": {
+        "default": "right",
+        "jupyter-notebook": "left"
+    },
+    "notebook.output.textLineLimit": 30,
+    "notebook.formatOnCellExecution": true,
+    "notebook.formatOnSave.enabled": true,
+    // ========== INTELLISENSE & AUTOCOMPLETE ==========
+    "python.analysis.include": [
+        "numberlink/**",
+        "tests/**",
+        "examples/**",
+        "docs/*.py"
+    ],
+    "python.analysis.exclude": [
+        "**/.pixi/**",
+        "**/outputs/**",
+        "**/logs/**",
+        "**/checkpoints/**",
+        "**/slurm_run_outputs/**",
+        "**/.git/**",
+        "**/.venv/**",
+        "**/node_modules/**",
+        "**/bower_components/**",
+        "**/.mypy_cache/**",
+        "**/.pytest_cache/**",
+        "**/.tox/**",
+        "**/.DS_Store/**",
+        "**/.ruff_cache/**",
+        "**/*.egg-info/**",
+        "**/build/**",
+        "**/dist/**",
+        "**/docs/_build/**",
+        "**/docs/_autosummary/**"
+    ],
+    // ========== WORKSPACE SPECIFIC ==========
+    "explorer.compactFolders": false,
+    "explorer.fileNesting.enabled": true,
+    "explorer.fileNesting.expand": true,
+    "explorer.fileNesting.patterns": {
+        "*.py": "$(capture).pyi",
+        "*.toml": "$(capture).lock",
+        "pixi.toml": "setup.cfg, MANIFEST.in, requirements*.txt, environment*.yml, mypy.ini, pyrightconfig.json, ruff.toml, .envrc, *.conda",
+        "requirements.txt": "requirements*.txt, requirements*.in",
+        "pyproject.toml": "pixi.lock, poetry.lock, Pipfile.lock, setup.cfg, MANIFEST.in, requirements*.txt, environment*.yml, mypy.ini, pyrightconfig.json, ruff.toml",
+        "setup.py": "setup.cfg, MANIFEST.in",
+        "*.md": "$(capture).*"
+    },
+    // ========== GIT CONFIGURATION ==========
+    "git.ignoreLimitWarning": true,
+    "git.autofetch": true,
+    "git.confirmSync": false,
+    "git.enableSmartCommit": false,
+    // "git.postCommitCommand": "none",
+    // ========== EXTENSION SPECIFIC ==========
+    // Better Comments
+    "better-comments.multilineComments": true,
+    "better-comments.highlightPlainText": false,
+    "better-comments.tags": [
+        {
+            "tag": "!",
+            "color": "#FF2D00",
+            "strikethrough": false,
+            "underline": false,
+            "backgroundColor": "transparent",
+            "bold": false,
+            "italic": false
+        },
+        {
+            "tag": "?",
+            "color": "#3498DB",
+            "strikethrough": false,
+            "underline": false,
+            "backgroundColor": "transparent",
+            "bold": false,
+            "italic": false
+        },
+        {
+            "tag": "//",
+            "color": "#474747",
+            "strikethrough": true,
+            "underline": false,
+            "backgroundColor": "transparent",
+            "bold": false,
+            "italic": false
+        },
+        {
+            "tag": "todo",
+            "color": "#FF8C00",
+            "strikethrough": false,
+            "underline": false,
+            "backgroundColor": "transparent",
+            "bold": false,
+            "italic": false
+        },
+        {
+            "tag": "*",
+            "color": "#98C379",
+            "strikethrough": false,
+            "underline": false,
+            "backgroundColor": "transparent",
+            "bold": false,
+            "italic": false
+        }
+    ],
+    // Error Lens
+    "errorLens.enabledDiagnosticLevels": [
+        "error",
+        "warning",
+    ],
+    "errorLens.excludeBySource": [],
+    "errorLens.delay": 100,
+    // Todo Tree
+    "todo-tree.general.tags": [
+        "BUG",
+        "HACK",
+        "FIXME",
+        "TODO",
+        "XXX",
+        "[ ]",
+        "[x]",
+        "NOTE",
+        "REVIEW",
+        "OPTIMIZE"
+    ],
+    "todo-tree.regex.regex": "((//|#|<!--|;|/\\*|^)|^\\s*(-|\\*|\\+|>|[0-9]+\\.))\\s*($TAGS)",
+    "extensions.ignoreRecommendations": false,
+    "workbench.settings.enableNaturalLanguageSearch": true,
+    "material-icon-theme.files.customClones": [
+        {
+            "name": "log-green",
+            "base": "log",
+            "color": "light-green-300",
+            "lightColor": "light-green-600",
+            "fileNames": [
+                "log.rs"
+            ]
+        },
+        {
+            "name": "log-red",
+            "base": "log",
+            "color": "red-400",
+            "lightColor": "red-500",
+            "fileNames": [
+                "log.rs"
+            ]
+        },
+    ],
+    "material-icon-theme.folders.associations": {
+        "numberlink": "src",
+        "plots": "images",
+        "slurm_job_outputs": "job",
+        "slurm_job_submits": "job",
+        "config_utils": "config",
+        "data_utils": "database",
+        "env_utils": "environment",
+        "import_utils": "import",
+        "log_utils": "log",
+        "outputs": "log",
+        "expermients": "test",
+        "experiment": "test",
+        "viz_utils": "images",
+        "search": "context",
+        "webapp_outputs": "log",
+        "training": "bicep",
+        "train": "bicep",
+        ".pixi": "packages",
+        "slurm": "cluster",
+    },
+    "material-icon-theme.files.associations": {
+        "*.err": "log-red",
+        "*.out": "log-green",
+        "*.pkl": "pkl",
+        "cli.py": "pipeline",
+    },
+    "terminal.integrated.enableImages": true,
+    "markdownlint.config": {
+        "MD033": {
+            "allowed_elements": [
+                "br"
+            ]
+        }
+    },
+    "yaml.schemas": {
+        "https://www.schemastore.org/github-action.json": [
+            "${workspaceFolder}/.github/workflows/publish_to_pypi.yml",
+            "${workspaceFolder}/.github/workflows/build_dist.yml",
+            "${workspaceFolder}/.github/workflows/docs.yml"
+        ],
+        "https://raw.githubusercontent.com/astral-sh/ruff/main/ruff.schema.json": [
+            "${workspaceFolder}/ruff.toml"
+        ],
+        "https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/pyproject.json": [
+            "${workspaceFolder}/pyproject.toml"
+        ],
+        "https://raw.githubusercontent.com/prefix-dev/pixi/main/schema/schema.json": [
+            "${workspaceFolder}/pixi.toml"
+        ],
+        "https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/github-workflow.json": [
+            "${workspaceFolder}/.github/workflows/publish_to_pypi.yml",
+            "${workspaceFolder}/.github/workflows/build_dist.yml",
+        ],
+        "https://raw.githubusercontent.com/SchemaStore/schemastore/master/src/schemas/json/partial-pytest.json": [
+            "${workspaceFolder}/pytest.ini",
+            "${workspaceFolder}/tox.ini",
+            "${workspaceFolder}/setup.cfg"
+        ],
+        "https://www.schemastore.org/yamllint.json": [
+            "${workspaceFolder}/.yamllint.yml",
+            "${workspaceFolder}/.yamllint.yaml"
+        ]
+    },
+    "json.schemas": [
+        {
+            "fileMatch": [
+                "${workspaceFolder}/pyrightconfig.json"
+            ],
+            "url": "https://raw.githubusercontent.com/microsoft/pyright/main/packages/vscode-pyright/schemas/pyrightconfig.schema.json"
+        }
+    ],
+}

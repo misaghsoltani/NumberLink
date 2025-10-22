@@ -1,0 +1,138 @@
+[build-system]
+requires = ["hatchling>=1.27.0,<2"]
+build-backend = "hatchling.build"
+
+[project]
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+name = "numberlink"
+dynamic = ["version"]
+description = "NumberLink puzzle environment for Gymnasium"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Misagh Soltani", email = "misaghsoltani@gmail.com" }]
+license = "MIT"
+license-files = ["LICEN[CS]E*"]
+keywords = [
+    "NumberLink",
+    "Puzzle",
+    "Game",
+    "Gymnasium",
+    "OpenAI Gym",
+    "gym",
+    "AI",
+    "reinforcement learning",
+    "deep reinforcement learning",
+    "search",
+    "heuristic search",
+    "pathfinding",
+    "planning",
+]
+dependencies = ["numpy>=2.0, <3", "gymnasium>=1.0, <2", "pygame>=2.0, <3"]
+
+# run-numberlink will run the CLI
+[project.urls]
+GitHub = "https://github.com/misaghsoltani/NumberLink/"
+Documentation = "https://misaghsoltani.github.io/NumberLink/"
+
+
+[project.scripts]
+numberlink = "numberlink.main:main"
+numberlink-cli = "numberlink.cli:main"
+
+[project.entry-points."gymnasium.envs"]
+NumberLinkRGB-v0 = "numberlink.registration:env_creator"
+NumberLinkRGBVector-v0 = "numberlink.registration:vector_env_creator"
+
+# [tool.hatchling.packages.find]
+# include = ["numberlink*"] # Only consider package names starting with numberlink (e.g. numberlink, numberlink.submodule, etc.) when auto-discovering packages
+# namespaces = false # Don't treat directories without an __init__.py as namespace packages; only folders with __init__.py count
+
+[tool.hatchling]
+include-package-data = true
+
+# [tool.hatch.metadata]
+# allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["numberlink"]
+include = [
+    # "numberlink/**",
+    "numberlink/py.typed",
+    "numberlink/assets/**",
+    "README.md",
+]
+exclude = ["*.py[cod]", "__pycache__/**", ".DS_Store", ".git", ".vscode"]
+
+[tool.hatch.build.targets.sdist]
+packages = ["numberlink"]
+include = [
+    # "numberlink/**",
+    "numberlink/py.typed",
+    "numberlink/assets/**",
+    "README.md",
+]
+exclude = [
+    "*.py[cod]",
+    "__pycache__/**",
+    ".DS_Store",
+    ".vscode",
+    ".git",
+    ".pixi",
+]
+
+[tool.hatch.version]
+path = "numberlink/__init__.py"
+
+[dependency-groups]
+doc = [
+    "furo",
+    "sphinx-copybutton",
+    "sphinx-autodoc2",
+    "sphinx-sitemap",
+    "myst-parser",
+]
+default = ["numberlink"]
+dev = [
+    { include-group = "default" },
+    { include-group = "doc" },
+    { include-group = "test" },
+    { include-group = "build" },
+    "ruff",
+    "pyright",
+    "mypy",
+    "shellcheck",
+    "yamllint",
+    "pre-commit",
+    "cffconvert",
+    "types-defusedxml",
+    "types-pytz",
+    "imageio",
+]
+test = [
+    { include-group = "default" },
+    { include-group = "doc" },
+    "pytest",
+    "nose2",
+    "pytest-cov",
+    "tox",
+    "pillow",
+]
+build = [{ include-group = "default" }, "hatch"]
+all = [
+    { include-group = "default" },
+    { include-group = "dev" },
+    { include-group = "build" },
+    { include-group = "doc" },
+    { include-group = "test" },
+]

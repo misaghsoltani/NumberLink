@@ -1,0 +1,18 @@
+{
+    "recommendations": [
+        "charliermarsh.ruff",
+        "ms-python.mypy-type-checker",
+        "redhat.vscode-yaml",
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "renan-r-santos.pixi-code",
+        "mkhl.direnv",
+        "tamasfe.even-better-toml",
+        "yzhang.markdown-all-in-one",
+        "davidanson.vscode-markdownlint",
+        "bierner.markdown-preview-github-styles",
+        "pkief.material-icon-theme",
+        "ms-python.vscode-python-envs",
+        "useblocks.ubcode"
+    ]
+}

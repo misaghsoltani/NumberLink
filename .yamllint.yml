@@ -1,0 +1,22 @@
+# Project yamllint configuration
+
+extends: default
+
+rules:
+  line-length:
+    max: 120
+    allow-non-breakable-words: true
+    allow-non-breakable-inline-mappings: true
+  truthy:
+    allowed-values: ["true", "false", "on", "off", "yes", "no"]
+
+ignore: |
+  .pixi/**
+  **/node_modules/**
+  **/.tox/**
+  **/.eggs/**
+  **/dist/**
+  **/build/**
+  **/__pycache__/**
+  **/_build/**
+  **/_autosummary/**

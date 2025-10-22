@@ -1,0 +1,78 @@
+{
+  "include": ["numberlink", "examples", "tests"],
+
+  "exclude": [
+    "**/.pixi/**",
+    "**/__pycache__/**",
+    "**/.pytest_cache/**",
+    "**/.mypy_cache/**",
+    "**/.ruff_cache/**",
+    "**/*.egg-info/**",
+    "**/build/**",
+    "**/dist/**",
+    "**/.git/**",
+    "**/.venv/**",
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/logs/**",
+    "**/outputs/**",
+    "**/checkpoints/**",
+    "**/.cache/**",
+    "**/.tox/**",
+    "**/.eggs/**",
+    "**/docs/_*"
+    // "**/typings/**",
+  ],
+
+  "ignore": ["tests/"],
+
+  // "defineConstant": {
+  //   "DEBUG": true
+  // },
+
+  //   "stubPath": "numberlink/stubs",
+  "reportUnnecessaryTypeIgnoreComment": "warning",
+  "reportUnnecessaryCast": "warning",
+  "reportUnnecessaryTypeAssertion": "warning",
+  "reportUnnecessaryCondition": "warning",
+  "reportUnnecessaryComparison": "warning",
+  "reportUnnecessaryContains": "warning",
+  "reportUnnecessaryIsInstance": "warning",
+  // "reportMissingSuperCall": "warning",
+  "reportUnusedClass": "warning",
+  "reportUnusedExpression": "warning",
+  "reportCallIssue": "error",
+  "reportMissingImports": "error",
+  "reportMissingTypeStubs": false,
+  "typeCheckingMode": "basic",
+  "reportDeprecated": "warning",
+  "reportAssignmentType": "error",
+  "reportUnusedVariable": "warning",
+  "reportUnusedFunction": "warning",
+  "reportAssertAlwaysTrue": "warning",
+  "reportGeneralTypeIssues": "error",
+  "reportImportCycles": "warning",
+  "reportUnreachable": "warning",
+  "reportRedeclaration": "error",
+  "reportAttributeAccessIssue": "error",
+  "reportInconsistentConstructor": "warning",
+  "reportConstantRedefinition": "warning",
+  "reportIndexIssue": "error",
+  "reportMissingTypeArgument": "warning",
+  "reportUndefinedVariable": "error",
+  "reportUnusedImport": "warning",
+  "enableReachabilityAnalysis": true,
+  "deprecateTypingAliases": true,
+
+  //   "pythonPlatform": "Linux",
+
+  // Provide a conservative execution environment for the language server so it
+  // doesn't pick a bleeding-edge Python runtime. Use 3.12 which is supported
+  // by the project range and typically stable for the language server.
+  "executionEnvironments": [
+    {
+      "root": "./"
+      // "pythonVersion": "3.12"
+    }
+  ]
+}

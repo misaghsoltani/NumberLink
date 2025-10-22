@@ -1,0 +1,44 @@
+:root {
+  --brand-foreground: #0f172a;
+  --brand-accent: #10b981;
+}
+
+/* Make code blocks clearer */
+div.highlight {
+  border-radius: 8px;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.08);
+}
+
+/* Tweak logo spacing */
+.wy-side-nav-search .logo {
+  padding: 12px 0;
+}
+
+.admonition {
+  border-radius: 8px;
+}
+
+/* Improve heading contrast and spacing for Furo theme */
+.header-nav,
+.bd-content h1,
+.bd-content h2 {
+  color: var(--brand-foreground);
+}
+
+/* Slightly increase font-size for code blocks on desktop for readability */
+@media (min-width: 800px) {
+  .highlight pre {
+    font-size: 0.95rem;
+  }
+}
+
+/* Tables: make them easier to scan */
+.docutils table.docutils,
+.bd-content table {
+  border-collapse: collapse;
+}
+.bd-content table th,
+.bd-content table td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+}

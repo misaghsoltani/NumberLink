@@ -1,0 +1,33 @@
+name: numberlink-dev
+channels:
+  - https://prefix.dev/conda-forge
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python >=3.10,<3.15
+  - ruff *
+  - pyright >=1.1.403,<2
+  - shellcheck >=0.10.0,<0.11
+  - mypy >=1.17.0,<2
+  - furo>=2024.8.6,<2025
+  - sphinx-copybutton>=0.5.2,<0.6
+  - sphinx-autodoc2>=0.5.0,<0.6
+  - sphinx-sitemap>=2.9.0,<3
+  - myst-parser>=4.0.1,<5
+  - hatch
+  - yamllint >=1.37.1,<2
+  - pip
+  - pip:
+      - -e .
+      - numpy>=2.0, <3
+      - gymnasium>=1.0, <2
+      - pygame>=2.0, <3
+      - pre-commit>=4.3.0,<5
+      - cffconvert>=2.0.0,<3
+      - types-defusedxml>=0.7.0.20250822,<0.8
+      - types-pytz>=2025.2.0.20250809,<2026
+      - pytest>=8.4.2,<9
+      - nose2>=0.15.1,<0.16
+      - pytest-cov>=7.0.0,<8
+      - tox>=4.31.0,<5
+      - pillow>=12.0.0,<13

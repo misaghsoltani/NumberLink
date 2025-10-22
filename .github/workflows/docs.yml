@@ -1,0 +1,69 @@
+name: Docs • Build & Deploy
+
+on:
+  push:
+    tags:
+      - "v*" # Release tags trigger full publish
+  workflow_dispatch: # Manual dispatch
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Ensure only one Pages deployment per ref at a time
+# Cancel stale runs
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-docs:
+    name: Build docs
+    runs-on: macos-latest
+    # runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Enables Pages + collects site metadata (recommended by GitHub)
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      # Official Pixi setup
+      - name: "Setup Pixi (env: doc)"
+        uses: prefix-dev/setup-pixi@v0.9.1
+        with:
+          environments: doc
+          cache: false
+          locked: true
+          # Save caches only on main pushes to avoid PR cache churn
+          # cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
+
+      - name: Build docs
+        run: |
+          set -eo pipefail
+          pixi update -e doc
+          pixi install -e doc
+          pixi run -e doc docs
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs/_build/html
+          retention-days: 1
+
+  deploy-docs:
+    name: Deploy to GitHub Pages
+    needs: build-docs
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write # to deploy to Pages
+      id-token: write # to use OIDC for auth
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

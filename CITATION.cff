@@ -1,0 +1,29 @@
+cff-version: 1.2.0
+title: NumberLink Puzzle
+message: >-
+  If you use this environment, please cite it using the metadata from this file.
+type: software
+authors:
+  - given-names: Misagh
+    family-names: Soltani
+    email: misaghsoltani@gmail.com
+    orcid: "https://orcid.org/0009-0004-1017-3105"
+repository-code: "https://github.com/misaghsoltani/NumberLink"
+url: "https://misaghsoltani.github.io/NumberLink"
+abstract: A Gymnasium environment for the NumberLink puzzle.
+keywords:
+  - NumberLink
+  - Puzzle
+  - Pathfinding
+  - Reinforcement Learning
+license: MIT
+version: 0.1.0
+preferred-citation:
+  authors:
+    - family-names: Soltani
+      given-names: Misagh
+  title: "NumberLink Puzzle"
+  type: generic
+  year: 2025
+  entry: numberlinkenv2025soltani
+  url: "https://misaghsoltani.github.io/NumberLink"
