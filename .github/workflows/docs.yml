@@ -30,6 +30,11 @@ jobs:
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
+      - name: System deps for pygame
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libfreetype6-dev
+
       # Official Pixi setup
       - name: "Setup Pixi (env: doc)"
         uses: prefix-dev/setup-pixi@v0.9.1
@@ -39,11 +44,6 @@ jobs:
           locked: true
           # Save caches only on main pushes to avoid PR cache churn
           # cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
-
-      - name: System deps for pygame
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libfreetype6-dev
 
       - name: Build docs
         run: |
