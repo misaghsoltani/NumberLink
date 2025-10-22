@@ -1,9 +1,9 @@
 name: Docs • Build & Deploy
 
 on:
-  push:
-    tags:
-      - "v*" # Release tags trigger full publish
+  # push:
+  #   tags:
+  #     - "v*" # Release tags trigger full publish
   workflow_dispatch: # Manual dispatch
 
 permissions:
