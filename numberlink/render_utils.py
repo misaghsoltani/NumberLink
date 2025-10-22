@@ -28,7 +28,7 @@ def upscale_with_endpoint_borders(
     :type endpoint_mask: NDArray[bool]
     :param render_config: Rendering configuration specifying border color and thickness.
     :type render_config: RenderConfig
-    :param scale: Number of pixels per cell in the output. Must be at least ``1``; when smaller than twice the border
+    :param scale: Number of pixels per cell in the output. Must be at least ``1``, when smaller than twice the border
         thickness it is increased to accommodate the border.
     :type scale: int, optional
 

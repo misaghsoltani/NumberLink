@@ -151,7 +151,7 @@ def generate_gifs(
 
     :param output_dir: Directory where generated GIF files will be saved.
     :type output_dir: pathlib.Path
-    :param seed: Base random seed used for level generation; per-attempt seeds
+    :param seed: Base random seed used for level generation, per-attempt seeds
         are derived from this value.
     :type seed: int
     :param fps: Playback frames-per-second for the exported GIFs.

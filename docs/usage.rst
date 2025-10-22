@@ -24,8 +24,9 @@ be extended from either endpoint at any time, and the viewer updates focus autom
    # Gymnasium uses the package entry points to discover NumberLinkRGB-v0
    env = gym.make("NumberLinkRGB-v0", render_mode="rgb_array")
 
+   import numpy as np
    observation, info = env.reset(seed=123)
-   action_mask = info["action_mask"]
+   action_mask = info["action_mask"].astype(np.int8)
 
    terminated = False
    truncated = False
@@ -82,7 +83,8 @@ configuration objects with the single environment and exposes batched observatio
    )
 
    observations, infos = vec_env.reset(seed=7)
-   actions = [vec_env.single_action_space.sample(mask=mask) for mask in infos["action_mask"]]
+   import numpy as np
+   actions = [vec_env.single_action_space.sample(mask=mask.astype(np.int8)) for mask in infos["action_mask"]]
    observations, rewards, terminated, truncated, infos = vec_env.step(actions)
    vec_env.close()
 
@@ -110,6 +112,43 @@ be extended from either endpoint without using keyboard shortcuts.
 Default controls include arrow keys (and ``Q``/``E``/``Z``/``C`` for diagonals when enabled), brackets to pin a specific
 head, :kbd:`Tab` to cycle colors, and :kbd:`Space` to backtrack the active head by one cell. In cell switching mode the
 cursor follows mouse clicks, and painting obeys the active color and configuration.
+
+Notebook environments (Jupyter, JupyterLab, Google Colab) can render the same controls inline when the optional
+extra ``numberlink[notebook]`` is installed. Either instantiate
+:class:`numberlink.notebook_viewer.NumberLinkNotebookViewer` directly, or call
+:meth:`numberlink.viewer.NumberLinkViewer.loop` and the backend will automatically switch to the widget-based viewer.
+
+.. code-block:: python
+
+   env = gym.make(
+      "NumberLinkRGB-v0",
+      render_mode="human",
+      generator=GeneratorConfig(
+         mode="hamiltonian",
+         colors=7,
+         width=8,
+         height=8,
+         must_fill=True,
+         min_path_length=3,
+      ),
+      variant=VariantConfig(
+         allow_diagonal=False, cell_switching_mode=False, bridges_enabled=False
+      ),
+      render_config=RenderConfig(
+         gridline_color=(60, 60, 60),
+         gridline_thickness=1,
+         show_endpoint_numbers=True,
+         render_height=400,
+         render_width=400,
+      ),
+   )
+   env.reset(seed=2)
+
+   viewer = NumberLinkViewer(env, cell_size=64)
+   viewer.loop()
+
+If the extras are missing, the viewer emits a short installation hint instead of trying to open a pygame window in the
+notebook runtime.
 
 .. figure:: ../output/vector_scenarios.gif
    :alt: Batched environments advancing in parallel.

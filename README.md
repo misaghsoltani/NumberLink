@@ -9,7 +9,7 @@
 ![Static Badge](https://img.shields.io/badge/statically%20typed-mypy-039dfc)
 [![Build & Publish](https://github.com/misaghsoltani/NumberLink/actions/workflows/publish_to_pypi.yml/badge.svg)](https://github.com/misaghsoltani/NumberLink/actions/workflows/publish_to_pypi.yml)
 [![Deploy Documentation](https://github.com/misaghsoltani/NumberLink/actions/workflows/docs.yml/badge.svg)](https://github.com/misaghsoltani/NumberLink/actions/workflows/docs.yml)
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/numberlink_quickstart.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/run_human.ipynb)
 
 <br/>
 
@@ -35,23 +35,24 @@ NumberLink boards follow these invariants:
 
 ## Quick links
 
+- Home page & documentation: [NumberLink](https://misaghsoltani.github.io/NumberLink/)
 - Quick start: [Quick Start](#quick-start)
-- Google Colab: [Open in Colab](https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/numberlink_quickstart.ipynb)
-- Installation guide: [Installation - documentation site](https://misaghsoltani.github.io/NumberLink/installation.html)
-- CLI reference: [CLI - documentation site](https://misaghsoltani.github.io/NumberLink/apidocs/numberlink/numberlink.cli.html)
-- Python usage (API snippets): [API reference - documentation site](https://misaghsoltani.github.io/NumberLink/apidocs/index.html)
+- Google Colab: [Open in Colab](https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/run_human.ipynb)
+- Installation guide: [Installation - documentation](https://misaghsoltani.github.io/NumberLink/installation.html)
+- CLI reference: [CLI - documentation](https://misaghsoltani.github.io/NumberLink/apidocs/numberlink/numberlink.cli.html)
+- Python API: [API reference - documentation](https://misaghsoltani.github.io/NumberLink/apidocs/index.html)
 - Citing this project: [Cite this project](#cite-this-work)
 - Contact: [Contact](#contact)
 
 ### Demo
 
-| ![Must fill](https://raw.githubusercontent.com/misaghsoltani/DeepCubeAI/master/docs/_static/gifs/quickstart_must_fill.gif) | ![Cell switching](https://raw.githubusercontent.com/misaghsoltani/DeepCubeAI/master/docs/_static/gifs/quickstart_cell_switching.gif) | ![Path mode](https://raw.githubusercontent.com/misaghsoltani/DeepCubeAI/master/docs/_static/gifs/quickstart_path.gif) | ![Bridges and diagonal](https://raw.githubusercontent.com/misaghsoltani/DeepCubeAI/master/docs/_static/gifs/quickstart_bridges_diagonal.gif) |
+| ![Must fill](https://raw.githubusercontent.com/misaghsoltani/NumberLink/master/docs/_static/gifs/quickstart_must_fill.gif) | ![Cell switching](https://raw.githubusercontent.com/misaghsoltani/NumberLink/master/docs/_static/gifs/quickstart_cell_switching.gif) | ![Path mode](https://raw.githubusercontent.com/misaghsoltani/NumberLink/master/docs/_static/gifs/quickstart_path.gif) | ![Bridges and diagonal](https://raw.githubusercontent.com/misaghsoltani/NumberLink/master/docs/_static/gifs/quickstart_bridges_diagonal.gif) |
 | :------------------------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------: |
 
 ## Quick start
 
 The [NumberLink documentation](https://misaghsoltani.github.io/NumberLink/) covers every workflow in detail. The
-highlights below show the recommended [Gymnasium](https://gymnasium.farama.org/) >= 1.0 usage patterns. You can also try it out in the [Google Colab example](https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/numberlink_quickstart.ipynb).
+highlights below show the recommended [Gymnasium](https://gymnasium.farama.org/) >= 1.0 usage patterns. You can also try it out in the [Google Colab example](https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/run_human.ipynb).
 
 ### Install from PyPI
 
@@ -67,14 +68,31 @@ pip install numberlink
 uv pip install numberlink
 ```
 
+#### Enable notebook integration
+
+Install the optional notebook dependencies to enable inline controls in Jupyter and Google Colab:
+
+```bash
+pip install "numberlink[notebook]"
+```
+
+With `uv`:
+
+```bash
+uv pip install "numberlink[notebook]"
+```
+
 See the [installation guide](https://misaghsoltani.github.io/NumberLink/installation.html) for Pixi, Conda, and source build instructions.
 
 ### Create a single environment
 
 ```python
 import gymnasium as gym
+import numpy as np
 
-# Gymnasium discovers NumberLinkRGB-v0 from the package entry points
+import numberlink  # Auto-registers the NumberLink environments
+
+
 env = gym.make("NumberLinkRGB-v0", render_mode="rgb_array")
 
 observation, info = env.reset(seed=42)
@@ -82,10 +100,12 @@ action_mask = info["action_mask"]
 
 terminated = False
 truncated = False
+
 while not (terminated or truncated):
     action = env.action_space.sample(mask=action_mask)
     observation, reward, terminated, truncated, info = env.step(action)
     action_mask = info["action_mask"]
+    action_mask = info["action_mask"].astype(np.int8)
 
 env.close()
 ```
@@ -102,7 +122,8 @@ customize generation, gameplay rules, and rendering. Examples live in the
 
 ```python
 import gymnasium as gym
-from numberlink import GeneratorConfig
+from numberlink import GeneratorConfig  # Auto-registers the NumberLink environments
+import numpy as np
 
 vec_env = gym.make_vec(
     "NumberLinkRGB-v0",
@@ -113,6 +134,7 @@ vec_env = gym.make_vec(
 
 observations, infos = vec_env.reset(seed=0)
 actions = [vec_env.single_action_space.sample(mask=mask) for mask in infos["action_mask"]]
+actions = [vec_env.single_action_space.sample(mask=mask.astype(np.int8)) for mask in infos["action_mask"]]
 observations, rewards, terminated, truncated, infos = vec_env.step(actions)
 vec_env.close()
 ```
@@ -138,20 +160,34 @@ The pygame viewer mirrors the CLI command shown in
 [examples/run_human.py](https://github.com/misaghsoltani/NumberLink/blob/main/examples/run_human.py) and is documented
 at [viewer API](https://misaghsoltani.github.io/NumberLink/apidocs/numberlink/numberlink.viewer.html).
 
+### Notebook viewer
+
+The package ships an inline viewer that mirrors the pygame controls when the optional notebook extras are installed.
+
+```python
+env = gym.make(
+    "NumberLinkRGB-v0",
+    render_mode="human",
+    generator=GeneratorConfig( mode="hamiltonian", colors=7, width=8, height=8, must_fill=True, min_path_length=3),
+    variant=VariantConfig(allow_diagonal=False, cell_switching_mode=False, bridges_enabled=False),
+    render_config=RenderConfig(gridline_color=(60, 60, 60),gridline_thickness=1,show_endpoint_numbers=True,render_height=400,render_width=400),
+)
+env.reset()
+
+viewer = NumberLinkViewer(env, cell_size=64)
+viewer.loop()
+```
+
+`NumberLinkViewer.loop()` auto-detects notebook runtimes. When the optional dependencies are available it displays the
+inline widgets, otherwise it shows an installation hint so the classic pygame window is not opened in headless
+contexts.
+
 ## Auto-registration
 
 Recommended usage is to install the package (for example via PyPI), and Gymnasium then discovers the environments via
-the package's entry-points and you can call `gymnasium.make(...)` / `gymnasium.make_vec(...)` directly. If you need to
-register the env id in-process (for development or interactive use), call:
+the package's entry-points.
 
-```python
-import numberlink
-numberlink.register_numberlink_v0()
-```
-
-See the docs for details on packaging entry-points and the registration helper:
-[https://misaghsoltani.github.io/NumberLink/usage.html](https://misaghsoltani.github.io/NumberLink/usage.html)
-and [https://misaghsoltani.github.io/NumberLink/apidocs/index.html](https://misaghsoltani.github.io/NumberLink/apidocs/index.html).
+See the [documentation](https://misaghsoltani.github.io/NumberLink/) for more details.
 
 ## License
 

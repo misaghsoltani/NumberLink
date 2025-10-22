@@ -37,6 +37,12 @@ Option A - Install with `uv <https://docs.astral.sh/uv/>`_ (Recommended If Using
 
       uv pip install numberlink
 
+   To enable the notebook viewer:
+
+   .. code-block:: bash
+
+      uv pip install "numberlink[notebook]"
+
 Option B - Install with `pip <https://pip.pypa.io/en/stable/>`_
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -66,6 +72,12 @@ Option B - Install with `pip <https://pip.pypa.io/en/stable/>`_
       pip install numberlink
 
    See: `pip install command <https://pip.pypa.io/en/stable/cli/pip_install/>`_.
+
+   Install the optional notebook dependencies when working in Jupyter or Google Colab:
+
+   .. code-block:: bash
+
+      pip install "numberlink[notebook]"
 
 2. Source install with Pixi (Recommended when Installing from Source)
 ---------------------------------------------------------------------
@@ -107,6 +119,8 @@ Pixi environments are defined in the ``[environments]`` section of ``pixi.toml``
 +==========+====================================================+
 | default  | Core runtime dependencies                          |
 +----------+----------------------------------------------------+
+| notebook | Optional notebook extras (ipywidgets, ipyevents)   |
++----------+----------------------------------------------------+
 | dev      | Development tools: ruff, mypy, pyright, shellcheck |
 +----------+----------------------------------------------------+
 | build    | Build tools (hatch)                                |
@@ -126,6 +140,7 @@ Pixi environments are defined in the ``[environments]`` section of ``pixi.toml``
 
    pixi shell -e dev
    pixi shell -e all
+   pixi shell -e notebook
 
 All environments share the same solve-group (``default``) for consistent dependency resolution. See `Pixi's environment documentation <https://pixi.sh/latest/features/environment/>`_ for more details.
 

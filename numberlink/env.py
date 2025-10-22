@@ -152,7 +152,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
         self._lane_h: NDArray[np.unsignedinteger]
         self._heads: list[list[Coord]]
         self._stacks: list[list[list[CellLane]]]
-        self._closed: NDArray[np.bool_]
+        self._closed: NDArray[np.bool_] = np.zeros(self.num_colors, dtype=np.bool_)
         self._steps: int = 0
         # Convert coordinate solution to action sequence
         self._solution: list[ActType] | None = self._compute_solution_actions()

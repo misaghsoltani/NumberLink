@@ -12,7 +12,9 @@ from __future__ import annotations
 from collections import OrderedDict
 from importlib import import_module
 from pathlib import Path
+import sys
 from typing import TYPE_CHECKING, cast
+import warnings
 
 import numpy as np
 
@@ -23,6 +25,7 @@ if TYPE_CHECKING:
     from types import ModuleType
 
     import gymnasium as gym
+    from IPython.core.interactiveshell import InteractiveShell
     from numpy.typing import NDArray
     from pygame import Rect, Surface
     from pygame.time import Clock
@@ -110,15 +113,7 @@ class NumberLinkViewer:
             raise ValueError(f"cell_size must be positive, got {cell_size}")
 
         self.pygame: ModuleType = import_module("pygame")
-        pygame: ModuleType = self.pygame
-        pygame.init()
-        try:
-            png_path: Path = (Path(__file__).parent / "assets" / "numberlink-logo.png").resolve()
-            if png_path.exists():
-                icon_surf: Surface = pygame.image.load(str(png_path))
-                pygame.display.set_icon(icon_surf)
-        except Exception:
-            pass
+        self._pygame_initialized: bool = False
 
         # Accept wrapped envs from gym.make and unwrap to the base env for direct state access
         self.env: NumberLinkRGBEnv = cast(NumberLinkRGBEnv, env.unwrapped)
@@ -136,7 +131,7 @@ class NumberLinkViewer:
 
         self.window: Surface | None = None
         self.show_help: bool = True
-        self._help_auto_hide_deadline: int | None = self.pygame.time.get_ticks() + self.HELP_AUTO_HIDE_MS
+        self._help_auto_hide_deadline: int | None = None
         self.mouse_dragging: bool = False
         self.last_mouse_cell: Coord | None = None
 
@@ -153,12 +148,47 @@ class NumberLinkViewer:
         # Cache for pre-rendered glyph surfaces keyed by (char, scale, outline_thickness, fg, outline)
         self._glyph_cache: OrderedDict[tuple[str, int, int, RGBInt, RGBInt | None], Surface] = OrderedDict()
 
+    def _initialize_pygame(self) -> None:
+        """Initialize pygame once per viewer instance and set the application icon."""
+        if self._pygame_initialized:
+            return
+
+        pygame: ModuleType = self.pygame
+        pygame.init()
+        try:
+            png_path: Path = (Path(__file__).parent / "assets" / "numberlink-logo.png").resolve()
+            if png_path.exists():
+                icon_surf: Surface = pygame.image.load(str(png_path))
+                pygame.display.set_icon(icon_surf)
+        except Exception:
+            pass
+
+        if self.show_help:
+            self._help_auto_hide_deadline = pygame.time.get_ticks() + self.HELP_AUTO_HIDE_MS
+        else:
+            self._help_auto_hide_deadline = None
+        self._pygame_initialized = True
+
+    def _shutdown_pygame(self) -> None:
+        """Shut down pygame when the viewer loop exits."""
+        if not self._pygame_initialized:
+            return
+        try:
+            self.pygame.quit()
+        finally:
+            self._pygame_initialized = False
+            self.window = None
+
     def loop(self) -> None:
         """Run the interactive :mod:`pygame` event loop.
 
         Load :mod:`pygame` on first use, create a window sized to the environment grid, and process input events until
         the user exits.
         """
+        if _try_launch_notebook_viewer(self):
+            return
+
+        self._initialize_pygame()
         # Validate environment dimensions
         if self.env.W <= 0 or self.env.H <= 0:
             raise ValueError(f"Invalid environment dimensions: W={self.env.W}, H={self.env.H}")
@@ -224,7 +254,7 @@ class NumberLinkViewer:
                 pygame.display.flip()
                 clock.tick(30)
         finally:
-            pygame.quit()
+            self._shutdown_pygame()
 
     def _handle_path_key(self, key: int) -> None:
         """Handle a single key event while in path-editing mode.
@@ -450,7 +480,7 @@ class NumberLinkViewer:
         self._replay_last_advance_ms = now
 
         if self._replay_index >= len(self._replay_solution):
-            # Finished; leave solved state and re-enable all inputs
+            # Finished, leave solved state and re-enable all inputs
             self._replay_state = "idle"
             self._replay_solution = None
             return
@@ -1374,6 +1404,7 @@ class NumberLinkViewer:
                     outline_thickness=self.env._render_cfg.help_overlay_font_border_thickness,
                 )
                 y += line_h
+
             return
 
         # Replay status (playing/paused)
@@ -1423,3 +1454,62 @@ class NumberLinkViewer:
                     outline_thickness=self.env._render_cfg.help_overlay_font_border_thickness,
                 )
                 y += line_h
+
+
+def _detect_notebook_environment() -> str:
+    """Return the active notebook environment identifier or ``"none"`` when not in a notebook."""
+    try:
+        from IPython.core.getipython import get_ipython  # noqa: PLC0415
+    except ImportError:
+        return "none"
+
+    shell: InteractiveShell | None = get_ipython()
+    if shell is None:
+        return "none"
+
+    shell_name: str = shell.__class__.__name__
+    if shell_name == "ZMQInteractiveShell":
+        if "google.colab" in sys.modules:
+            return "colab"
+        return "jupyter"
+
+    return "none"
+
+
+def _show_notebook_missing_message(env_label: str, detail: str | None = None) -> None:
+    """Surface a user friendly notice when notebook dependencies are missing."""
+    base_message: str = (
+        "Install the optional notebook dependencies with `pip install numberlink[notebook]` to enable inline controls."
+    )
+    message: str = f"{detail} {base_message}".strip() if detail else base_message
+
+    try:
+        from IPython.display import Markdown, display  # noqa: PLC0415
+    except ImportError:
+        warnings.warn(message, stacklevel=2)
+        return
+
+    prefix: str = "Google Colab" if env_label == "colab" else "Notebook"
+    display(Markdown(f"> **NumberLink {prefix} support** - {message}"))
+
+
+def _try_launch_notebook_viewer(base_viewer: NumberLinkViewer) -> bool:
+    """Launch the notebook viewer when running in a notebook environment."""
+    env_label: str = _detect_notebook_environment()
+    if env_label == "none":
+        return False
+
+    try:
+        from .notebook_viewer import NumberLinkNotebookViewer  # noqa: PLC0415
+    except ImportError:
+        _show_notebook_missing_message(env_label)
+        return True
+
+    try:
+        notebook_viewer = NumberLinkNotebookViewer(base_viewer.env, cell_size=base_viewer.cell)
+    except RuntimeError as exc:
+        _show_notebook_missing_message(env_label, str(exc))
+        return True
+
+    notebook_viewer.loop()
+    return True

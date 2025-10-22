@@ -62,7 +62,7 @@ See :doc:`installation` for Conda, Pixi, and source builds.
 Quick Start
 -----------
 
-Explore the workflows below or launch the interactive `Google Colab example <https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/numberlink_quickstart.ipynb>`_.
+Explore the workflows below or launch the interactive `Google Colab example <https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/run_human.ipynb>`_.
 
 Programmatic setup
 ~~~~~~~~~~~~~~~~~~
@@ -70,12 +70,13 @@ Programmatic setup
 .. code-block:: python
 
    import gymnasium as gym
+   import numpy as np
 
    # Gymnasium discovers NumberLinkRGB-v0 through the package entry points
    env = gym.make("NumberLinkRGB-v0", render_mode="rgb_array")
 
    observation, info = env.reset(seed=42)
-   action_mask = info["action_mask"]
+   action_mask = info["action_mask"].astype(np.int8)
    terminated = False
    truncated = False
    while not (terminated or truncated):
@@ -92,11 +93,12 @@ Vectorized execution
 .. code-block:: python
 
    import gymnasium as gym
+   import numpy as np
 
    vec_env = gym.make_vec("NumberLinkRGB-v0", num_envs=4, render_mode="rgb_array")
 
    observations, infos = vec_env.reset(seed=7)
-   actions = [vec_env.single_action_space.sample(mask=mask) for mask in infos["action_mask"]]
+   actions = [vec_env.single_action_space.sample(mask=mask.astype(np.int8)) for mask in infos["action_mask"]]
    observations, rewards, terminated, truncated, infos = vec_env.step(actions)
    vec_env.close()
 

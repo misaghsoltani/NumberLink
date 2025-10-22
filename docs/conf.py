@@ -92,6 +92,9 @@ autodoc2_replace_annotations: list[tuple[str, str]] = [
     ("NDArray[np.bool_]", "NDArray[bool]"),
     ("NDArray[numpy.bool_]", "NDArray[bool]"),
     ("NDArray[np.bool | np.bool_]", "NDArray[bool]"),
+    ("ipywidgets.Layout", "ipywidgets.widgets.widget_layout.Layout"),
+    ("ipywidgets.Button", "ipywidgets.widgets.widget_button.Button"),
+    ("ipywidgets.GridBox", "ipywidgets.widgets.widget_box.GridBox"),
 ]
 
 # Intersphinx
@@ -100,6 +103,11 @@ intersphinx_mapping: dict[str, tuple[str, None]] = {
     "gymnasium": ("https://gymnasium.farama.org/", None),
     "numpy": ("https://numpy.org/doc/stable/", None),
     "pygame": ("https://www.pygame.org/docs/", None),
+    "ipywidgets": ("https://ipywidgets.readthedocs.io/en/stable/", None),
+    "PIL": ("https://pillow.readthedocs.io/en/stable/", None),
+    "imageio": ("https://imageio.readthedocs.io/en/stable/", None),
+    "IPython": ("https://ipython.readthedocs.io/en/stable/", None),
+    "ipyevents": ("https://ipyevents.readthedocs.io/en/latest/", None),
 }
 
 # Theme

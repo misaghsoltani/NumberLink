@@ -513,7 +513,7 @@ def _apply_random_orientation(level: Level, rng: Generator) -> Level:
     if level.solution is not None:
         sol: list[list[Coord]] = level.solution
         n_paths: int = len(sol)
-        # Create a concrete list to fill; avoid typing as Optional while assigning
+        # Create a concrete list to fill, avoid typing as Optional while assigning
         filled_solution: list[list[Coord]] = []
         if flip:
             mirror = new_width - 1
