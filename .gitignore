@@ -21,3 +21,4 @@ docs/.doctrees/
 docs/apidocs/
 output/
 gifs/
+!docs/_static/gifs/
