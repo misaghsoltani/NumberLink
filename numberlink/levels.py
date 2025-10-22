@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from importlib.abc import Traversable
+    from importlib.resources.abc import Traversable
 
     from .types import Coord
 
