@@ -1092,10 +1092,21 @@ class NumberLinkNotebookViewer:
 
         # Update replay info if active
         if self._replay_state != "idle" and self._replay_solution is not None:
-            total = len(self._replay_solution)
+            total: int = len(self._replay_solution)
             self._replay_info.value = f"Replaying step {self._replay_index}/{total}"
         else:
             self._replay_info.value = ""
+
+        try:
+            if self.env.render_mode in {"ansi", "human"} and self.env._render_cfg.print_text_in_human_mode:
+                try:
+                    text: str | None = self.env._render_text()
+                except Exception:
+                    text = None
+                if text is not None:
+                    print(text)
+        except Exception:
+            pass
 
     def _draw_cell_border(
         self, frame: NDArray[np.uint8], row: int, col: int, color: tuple[int, int, int], thickness: int
