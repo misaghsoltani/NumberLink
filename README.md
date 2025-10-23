@@ -9,7 +9,7 @@
 ![Static Badge](https://img.shields.io/badge/statically%20typed-mypy-039dfc)
 [![Build & Publish](https://github.com/misaghsoltani/NumberLink/actions/workflows/publish_to_pypi.yml/badge.svg)](https://github.com/misaghsoltani/NumberLink/actions/workflows/publish_to_pypi.yml)
 [![Deploy Documentation](https://github.com/misaghsoltani/NumberLink/actions/workflows/docs.yml/badge.svg)](https://github.com/misaghsoltani/NumberLink/actions/workflows/docs.yml)
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1w9lbVMGB4rrAyNw5GD2UPuTrXyN0GE0s?usp=sharing)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/run_human.ipynb)
 
 <br/>
 
@@ -37,7 +37,7 @@ NumberLink boards follow these invariants:
 
 - Home page & documentation: [NumberLink](https://misaghsoltani.github.io/NumberLink/)
 - Quick start: [Quick Start](#quick-start)
-- Google Colab: [Open in Colab](https://colab.research.google.com/drive/1w9lbVMGB4rrAyNw5GD2UPuTrXyN0GE0s?usp=sharing)
+- Google Colab: [Open in Colab](https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/run_human.ipynb)
 - Installation guide: [Installation - documentation](https://misaghsoltani.github.io/NumberLink/installation.html)
 - CLI reference: [CLI - documentation](https://misaghsoltani.github.io/NumberLink/apidocs/numberlink/numberlink.cli.html)
 - Python API: [API reference - documentation](https://misaghsoltani.github.io/NumberLink/apidocs/index.html)
@@ -52,7 +52,7 @@ NumberLink boards follow these invariants:
 ## Quick start
 
 The [NumberLink documentation](https://misaghsoltani.github.io/NumberLink/) covers every workflow in detail. The
-highlights below show the recommended [Gymnasium](https://gymnasium.farama.org/) >= 1.0 usage patterns. You can also try it out in the [Google Colab example](https://colab.research.google.com/drive/1w9lbVMGB4rrAyNw5GD2UPuTrXyN0GE0s?usp=sharing).
+highlights below show the recommended [Gymnasium](https://gymnasium.farama.org/) >= 1.0 usage patterns. You can also try it out in the [Google Colab example](https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/run_human.ipynb).
 
 ### Install from PyPI
 

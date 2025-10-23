@@ -62,7 +62,7 @@ See :doc:`installation` for Conda, Pixi, and source builds.
 Quick Start
 -----------
 
-Explore the workflows below or launch the interactive `Google Colab example <https://colab.research.google.com/drive/1w9lbVMGB4rrAyNw5GD2UPuTrXyN0GE0s?usp=sharing>`_.
+Explore the workflows below or launch the interactive `Google Colab example <https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/run_human.ipynb>`_.
 
 Setup Example
 ~~~~~~~~~~~~~~~~~~
