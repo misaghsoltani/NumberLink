@@ -20,11 +20,12 @@ be extended from either endpoint at any time, and the viewer updates focus autom
 .. code-block:: python
 
    import gymnasium as gym
-
-   # Gymnasium uses the package entry points to discover NumberLinkRGB-v0
-   env = gym.make("NumberLinkRGB-v0", render_mode="rgb_array")
-
    import numpy as np
+
+   import numberlink  # Auto-registration through package entry point
+
+   env = gym.make("NumberLinkRGB-v0", render_mode="rgb_array")
+   
    observation, info = env.reset(seed=123)
    action_mask = info["action_mask"].astype(np.int8)
 
@@ -73,6 +74,8 @@ configuration objects with the single environment and exposes batched observatio
 .. code-block:: python
 
    import gymnasium as gym
+   import numpy as np
+
    from numberlink import GeneratorConfig
 
    vec_env = gym.make_vec(
@@ -83,7 +86,6 @@ configuration objects with the single environment and exposes batched observatio
    )
 
    observations, infos = vec_env.reset(seed=7)
-   import numpy as np
    actions = [vec_env.single_action_space.sample(mask=mask.astype(np.int8)) for mask in infos["action_mask"]]
    observations, rewards, terminated, truncated, infos = vec_env.step(actions)
    vec_env.close()

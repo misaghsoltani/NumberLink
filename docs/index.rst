@@ -96,6 +96,8 @@ Vectorized execution
    import gymnasium as gym
    import numpy as np
 
+   import numberlink # Aut-registration through package entry point
+
    vec_env = gym.make_vec("NumberLinkRGB-v0", num_envs=4, render_mode="rgb_array")
 
    observations, infos = vec_env.reset(seed=7)
