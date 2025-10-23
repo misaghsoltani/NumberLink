@@ -64,7 +64,7 @@ Quick Start
 
 Explore the workflows below or launch the interactive `Google Colab example <https://colab.research.google.com/drive/1w9lbVMGB4rrAyNw5GD2UPuTrXyN0GE0s?usp=sharing>`_.
 
-Programmatic setup
+Setup Example
 ~~~~~~~~~~~~~~~~~~
 
 .. code-block:: python
@@ -72,7 +72,8 @@ Programmatic setup
    import gymnasium as gym
    import numpy as np
 
-   # Gymnasium discovers NumberLinkRGB-v0 through the package entry points
+   import numberlink # Gymnasium discovers NumberLinkRGB-v0 through the package entry points
+
    env = gym.make("NumberLinkRGB-v0", render_mode="rgb_array")
 
    observation, info = env.reset(seed=42)
