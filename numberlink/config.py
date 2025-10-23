@@ -222,7 +222,7 @@ class RenderConfig:
     number_font_color: RGBInt = (255, 255, 255)
     number_font_border_color: RGBInt = (0, 0, 0)
     # Thickness in pixels for the font outline drawn around endpoint numbers
-    number_font_border_thickness: int = 1
+    number_font_border_thickness: int = 0
     # Endpoint label font size limits (integer bitmap scale units). None allows automatic sizing based on cell pixels.
     number_font_min_scale: int = 1
     number_font_max_scale: int | None = None
@@ -230,7 +230,7 @@ class RenderConfig:
     help_overlay_font_color: RGBInt = (220, 220, 220)
     help_overlay_font_border_color: RGBInt = (0, 0, 0)
     # Thickness in pixels for the help-overlay font outline
-    help_overlay_font_border_thickness: int = 1
+    help_overlay_font_border_thickness: int = 0
     help_overlay_background_color: RGBInt = (30, 30, 30)
     help_overlay_background_alpha: int = 200
     # Viewer highlights and cursors (human viewer)
