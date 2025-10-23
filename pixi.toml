@@ -57,6 +57,7 @@ glibc217 = { features = [
   "build",
   "test",
   "doc",
+  "notebook",
 ] } #, solve-group = "all" }
 
 # [tool.build-dependencies]
