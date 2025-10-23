@@ -16,7 +16,7 @@ ci = "pixi run -e dev check && pixi run -e test test-coverage && pixi run -e doc
 
 [package]
 name = "numberlink"
-version = "0.1.3"
+version = "0.1.4"
 
 
 [package.build]
@@ -135,9 +135,10 @@ sphinx-copybutton = ">=0.5.2,<0.6"
 sphinx-autodoc2 = ">=0.5.0,<0.6"
 sphinx-sitemap = ">=2.9.0,<3"
 myst-parser = ">=4.0.1,<5"
+linkify-it-py = ">=2.0.3,<3"
 
-# [feature.doc.pypi-dependencies]
-
+[feature.doc.pypi-dependencies]
+# myst-parser = { version = "*", extras = ["linkify"] }
 
 [feature.doc.tasks]
 docs = "sphinx-build -b html docs docs/_build/html"
