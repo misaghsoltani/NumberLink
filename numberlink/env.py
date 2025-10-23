@@ -447,8 +447,8 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
 
         When :attr:`render_mode` is ``'rgb_array'`` return an image frame of type :class:`numpy.ndarray`. When
         :attr:`render_mode` is ``'ansi'`` or ``'human'`` return a textual representation. When :attr:`render_mode` is
-        ``'human'`` and :attr:`_render_cfg.print_text_in_human_mode` is ``True``, also print the textual representation
-        to standard output.
+        ``'human'`` and :attr:`numberlink.config.RenderConfig.print_text_in_human_mode` is ``True``, also print the
+        textual representation to standard output.
 
         :return: A frame or textual rendering depending on the configured mode, or ``None`` when rendering is
             disabled
