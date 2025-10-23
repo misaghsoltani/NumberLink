@@ -44,7 +44,7 @@ pkg_dir: Path = repo_root / "numberlink"  # package location
 
 extensions: list[str] = [
     "sphinx.ext.intersphinx",
-    # "sphinx.ext.viewcode",
+    # Note: viewcode and linkcode are mutually exclusive - we use linkcode for GitHub links
     "sphinx.ext.linkcode",  # GitHub "view source" per-object links
     "sphinx.ext.todo",
     "sphinx.ext.githubpages",
@@ -115,17 +115,59 @@ html_theme: str = "furo"
 html_title: str = f"{short_title} Documentation"
 html_baseurl: str = links["Documentation"]  # needed by sphinx-sitemap
 html_copy_source: bool = False
+html_show_sourcelink: bool = True  # Enable source links: they will use linkcode_resolve to point to GitHub
 html_static_path: list[str] = ["_static"]
 html_css_files: list[str] = ["custom.css"]
 html_logo: str = "_static/numberlink-logo.svg"
 html_favicon: str = "_static/numberlink-logo.png"
-html_theme_options: dict[str, bool | str | dict[str, str]] = {
+html_theme_options: dict[str, bool | str | dict[str, str] | list[str] | list[dict[str, str]]] = {
     "navigation_with_keys": True,
     "light_css_variables": {"color-brand-primary": "#0f172a", "color-brand-content": "#0f172a"},
     "dark_css_variables": {"color-brand-primary": "#60a5fa", "color-brand-content": "#e6eefc"},
     "source_repository": links["GitHub"],  # Furo buttons ("View page", "Edit this page")
     "source_branch": "main",
     "source_directory": "docs/",
+    "top_of_page_buttons": ["view"],
+    "source_view_link": links["GitHub"] + "/blob/main/docs/{filename}",
+    # Add GitHub link and version to announcement banner
+    "announcement": (
+        '<a href="https://pypi.org/project/numberlink/" style="color: inherit; text-decoration: none;">'
+        f"📦 <strong>NumberLink v{release}</strong></a> | "
+        f'<a href="{links["GitHub"]}" style="color: inherit; text-decoration: none;">'
+        '<svg stroke="currentColor" fill="currentColor" stroke-width="0" '
+        'viewBox="0 0 16 16" style="display: inline-block; vertical-align: middle; '
+        'width: 1em; height: 1em; margin-right: 0.35em;">'
+        '<path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 '
+        "7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-"
+        ".15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-"
+        ".89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 "
+        "2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 "
+        "3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8 0 0 0 "
+        '16 8c0-4.42-3.58-8-8-8z"></path>'
+        "</svg>"
+        f"⭐ <strong>Star us on GitHub</strong></a>"
+    ),
+    # Footer icon linking to the repository for a visible, always-present link
+    "footer_icons": [
+        {
+            "name": "GitHub",
+            "url": links["GitHub"],
+            "html": (
+                '\n                <svg stroke="currentColor" fill="currentColor" stroke-width="0" '
+                'viewBox="0 0 16 16">\n'
+                '                    <path fill-rule="evenodd" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 '
+                "7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-"
+                ".15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-"
+                ".89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 "
+                "2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 "
+                "3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8 0 0 0 "
+                '16 8c0-4.42-3.58-8-8-8z">\n'
+                "                    </path>\n"
+                "                </svg>\n"
+            ),
+            "class": "",
+        }
+    ],
 }
 
 # Copy button
@@ -209,7 +251,10 @@ def link_to(fn: str, start: int | None = None, end: int | None = None) -> str | 
     """Return a GitHub URL for the given file and line range, or None if not possible."""
     rel: str = Path(fn).resolve().relative_to(repo_root).as_posix()
     base: str = f"{links['GitHub']}/blob/main/{rel}"
-    return f"{base}#L{start}-L{end}" if start and end else base
+    if start and end:
+        # Use single line format for better auto-scroll, or range format for multi-line
+        return f"{base}#L{start}" if start == end else f"{base}#L{start}-L{end}"
+    return base
 
 
 # Link to GitHub source per object
