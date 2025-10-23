@@ -199,6 +199,9 @@ class RenderConfig:
     :vartype cursor_highlight_thickness: int
     :var cursor_endpoint_highlight_color: RGB color triple used for the cursor endpoint highlight.
     :vartype cursor_endpoint_highlight_color: RGBInt
+    :var print_text_in_human_mode: If ``True``, print the text representation of the grid to standard output when
+        render mode is ``'human'``. If ``False``, text output is only returned but not printed.
+    :vartype print_text_in_human_mode: bool
 
     .. seealso::
        :mod:`numberlink.render_utils`
@@ -235,3 +238,4 @@ class RenderConfig:
     active_head_highlight_thickness: int = 2
     cursor_highlight_thickness: int = 3
     cursor_endpoint_highlight_color: RGBInt = (220, 80, 80)
+    print_text_in_human_mode: bool = False
