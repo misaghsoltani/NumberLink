@@ -22,7 +22,7 @@ be extended from either endpoint at any time, and the viewer updates focus autom
    import gymnasium as gym
    import numpy as np
 
-   import numberlink  # Auto-registration through package entry point
+   import numberlink  # Importing the package automatically registers the environment
 
    env = gym.make("NumberLinkRGB-v0", render_mode="rgb_array")
    
@@ -38,8 +38,8 @@ be extended from either endpoint at any time, and the viewer updates focus autom
 
    env.close()
 
-When developing from source or within a notebook, call :func:`numberlink.registration.register_numberlink_v0` before
-creating the environment so the id is present in the registry for the current process. The info dictionary includes the
+The ``import numberlink`` statement automatically calls :func:`numberlink.registration.register_numberlink_v0` during
+module initialization, making the environment id available for :func:`gymnasium.make`. The info dictionary includes the
 binary action mask, the step counter, connectivity status per color, the level identifier (when available), and two
 flags named ``solved`` and ``deadlocked``.
 
@@ -103,10 +103,9 @@ be extended from either endpoint without using keyboard shortcuts.
 .. code-block:: python
 
    import gymnasium as gym
-   import numberlink
+   import numberlink  # Auto-registration on import
    from numberlink.viewer import NumberLinkViewer
 
-   numberlink.register_numberlink_v0()
    env = gym.make("NumberLinkRGB-v0", render_mode="human")
    viewer = NumberLinkViewer(env, cell_size=64)
    viewer.loop()
@@ -130,11 +129,13 @@ extra ``numberlink[notebook]`` is installed. Either instantiate
          colors=7,
          width=8,
          height=8,
-         must_fill=True,
          min_path_length=3,
       ),
       variant=VariantConfig(
-         allow_diagonal=False, cell_switching_mode=False, bridges_enabled=False
+         must_fill=True,
+         allow_diagonal=False,
+         cell_switching_mode=False,
+         bridges_enabled=False
       ),
       render_config=RenderConfig(
          gridline_color=(60, 60, 60),

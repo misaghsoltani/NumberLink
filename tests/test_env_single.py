@@ -20,9 +20,7 @@ def test_solution_retrieval_and_gif(output_dir: Path) -> None:
     """Generate a solvable env, apply solution actions, and save a GIF."""
     env: NumberLinkRGBEnv = NumberLinkRGBEnv(
         render_mode="rgb_array",
-        generator=GeneratorConfig(
-            mode="hamiltonian", colors=4, width=8, height=8, must_fill=True, allow_diagonal=False, seed=999
-        ),
+        generator=GeneratorConfig(mode="hamiltonian", colors=4, width=8, height=8, seed=999),
         variant=VariantConfig(must_fill=True, allow_diagonal=False, bridges_enabled=False),
         render_config=RenderConfig(
             render_height=8 * 10,
@@ -68,18 +66,12 @@ def test_solution_retrieval_and_gif(output_dir: Path) -> None:
     "mode_cfg,variant",
     [
         (GeneratorConfig(mode="random_walk", width=5, height=5, colors=3, seed=1), VariantConfig()),
-        (
-            GeneratorConfig(mode="random_walk", width=6, height=6, colors=3, allow_diagonal=True, seed=2),
-            VariantConfig(allow_diagonal=True),
-        ),
+        (GeneratorConfig(mode="random_walk", width=6, height=6, colors=3, seed=2), VariantConfig(allow_diagonal=True)),
         (
             GeneratorConfig(mode="random_walk", width=7, height=7, colors=4, bridges_probability=0.2, seed=3),
             VariantConfig(bridges_enabled=True),
         ),
-        (
-            GeneratorConfig(mode="hamiltonian", width=6, height=6, colors=4, must_fill=True, seed=4),
-            VariantConfig(must_fill=True),
-        ),
+        (GeneratorConfig(mode="hamiltonian", width=6, height=6, colors=4, seed=4), VariantConfig(must_fill=True)),
         # cell switching mode
         (
             GeneratorConfig(mode="random_walk", width=5, height=5, colors=3, seed=5),

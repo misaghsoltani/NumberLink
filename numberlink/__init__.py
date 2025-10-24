@@ -3,11 +3,13 @@
 The package exposes configuration dataclasses, environment classes, and the ``LEVELS`` mapping of built-in levels.
 Import these symbols for your use or to register the environment using :func:`register_numberlink_v0`.
 
-By default the package does not automatically register Gymnasium ids on import. Library consumers should prefer
-explicit registration via ``numberlink.register_numberlink_v0()``. When installed from PyPI the package also
-exposes packaging entry-points (``project.entry-points."gymnasium.envs"``) so Gymnasium can auto-discover and
-load the environment without an explicit registration call. See the project ``pyproject.toml`` for the
-``gymnasium.envs`` entry-point names.
+The package automatically registers the ``NumberLinkRGB-v0`` environment id with Gymnasium on import by calling
+:func:`register_numberlink_v0` at module initialization. This means ``import numberlink`` is sufficient to make
+the environment available for ``gymnasium.make("NumberLinkRGB-v0")``.
+
+When installed from PyPI, the package also exposes packaging entry-points (``project.entry-points."gymnasium.envs"``)
+so Gymnasium can discover and instantiate the environment through its entry-point system. See the project
+``pyproject.toml`` for the ``gymnasium.envs`` entry-point definitions.
 """
 
 from __future__ import annotations
@@ -20,7 +22,7 @@ from .registration import register_numberlink_v0
 from .vector_env import NumberLinkRGBVectorEnv
 from .viewer import NumberLinkViewer
 
-__version__ = "0.1.4"
+__version__ = "0.1.5"
 __author__ = "Misagh Soltani"
 
 register_numberlink_v0()

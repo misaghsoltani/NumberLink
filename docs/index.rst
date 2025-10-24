@@ -62,7 +62,7 @@ See :doc:`installation` for Conda, Pixi, and source builds.
 Quick Start
 -----------
 
-Explore the workflows below or launch the interactive `Google Colab example <https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/run_human.ipynb>`_.
+Explore the workflows below or launch the interactive `Google Colab example <https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/numberlink_interactive.ipynb>`_.
 
 Setup Example
 ~~~~~~~~~~~~~~~~~~
@@ -72,7 +72,7 @@ Setup Example
    import gymnasium as gym
    import numpy as np
 
-   import numberlink # Gymnasium discovers NumberLinkRGB-v0 through the package entry points
+   import numberlink  # Importing the package automatically registers NumberLinkRGB-v0
 
    env = gym.make("NumberLinkRGB-v0", render_mode="rgb_array")
 
@@ -86,7 +86,9 @@ Setup Example
       action_mask = info["action_mask"]
    env.close()
 
-When running from source or a notebook, register the id in process with :func:`numberlink.registration.register_numberlink_v0` before calling :func:`gymnasium.make`.
+The ``import numberlink`` statement automatically registers the environment id with Gymnasium, making it immediately
+available for use. When installed from PyPI, Gymnasium can also discover the environment through package entry points
+without needing an explicit import.
 
 Vectorized execution
 ~~~~~~~~~~~~~~~~~~~~
@@ -96,7 +98,7 @@ Vectorized execution
    import gymnasium as gym
    import numpy as np
 
-   import numberlink # Aut-registration through package entry point
+   import numberlink  # Auto-registration on import
 
    vec_env = gym.make_vec("NumberLinkRGB-v0", num_envs=4, render_mode="rgb_array")
 
@@ -113,10 +115,9 @@ Human mode viewer
 .. code-block:: python
 
    import gymnasium as gym
-   import numberlink
+   import numberlink  # Auto-registration on import
    from numberlink.viewer import NumberLinkViewer
 
-   numberlink.register_numberlink_v0()
    env = gym.make("NumberLinkRGB-v0", render_mode="human")
    viewer = NumberLinkViewer(env)
    viewer.loop()

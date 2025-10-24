@@ -207,8 +207,6 @@ def generate_gifs(
                     width=side,
                     height=side,
                     colors=max(2, color_count),
-                    must_fill=variant.must_fill,
-                    allow_diagonal=variant.allow_diagonal,
                     bridges_probability=bridges_probability,
                     min_path_length=max(2, min_path_len),
                     max_retries=50,

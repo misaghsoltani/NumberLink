@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from numpy.random import Generator
     from numpy.typing import NDArray
 
-    from .config import GeneratorConfig
+    from .config import GeneratorConfig, VariantConfig
     from .types import Coord
 
 DIR_STEPS: tuple[Coord, ...] = ((-1, 0), (0, 1), (1, 0), (0, -1))
@@ -33,7 +33,7 @@ DIR_STEPS: tuple[Coord, ...] = ((-1, 0), (0, 1), (1, 0), (0, -1))
 # Generator helpers
 
 
-def generate_level(cfg: GeneratorConfig) -> Level:
+def generate_level(cfg: GeneratorConfig, *, variant: VariantConfig | None = None) -> Level:
     """Generate a puzzle level using the configured generator settings.
 
     Dispatch to either :func:`_gen_hamiltonian_partition` or :func:`_gen_random_walk` depending on the value of
@@ -42,21 +42,29 @@ def generate_level(cfg: GeneratorConfig) -> Level:
 
     :param cfg: Generator configuration object. See :class:`numberlink.config.GeneratorConfig` for options and defaults.
     :type cfg: GeneratorConfig
+    :param variant: Variant configuration object. If ``None``, defaults to ``VariantConfig()`` with standard settings.
+        The ``must_fill`` and ``allow_diagonal`` settings are taken from this parameter.
+    :type variant: VariantConfig or None
 
     :return: Generated puzzle level as a :class:`numberlink.levels.Level`.
     :rtype: Level
 
     :raises ValueError: If ``cfg.mode`` is not one of ``'hamiltonian'`` or ``'random_walk'``.
     """
+    if variant is None:
+        variant = VariantConfig()
+
     if cfg.mode == "hamiltonian":
-        return _gen_hamiltonian_partition(cfg)
+        return _gen_hamiltonian_partition(cfg, variant=variant)
     elif cfg.mode == "random_walk":
-        return _gen_random_walk(cfg)
+        return _gen_random_walk(cfg, variant=variant)
     else:
         raise ValueError(f"Unknown generator mode: {cfg.mode}. Must be 'hamiltonian' or 'random_walk'.")
 
 
-def _gen_hamiltonian_partition(cfg: GeneratorConfig, *, allow_random_fallback: bool = True) -> Level:
+def _gen_hamiltonian_partition(
+    cfg: GeneratorConfig, *, variant: VariantConfig, allow_random_fallback: bool = True
+) -> Level:
     """Deterministic generator that assembles a valid, fully filled puzzle.
 
     The generator builds a Hamiltonian path that covers every cell and partitions that path into segments that become
@@ -124,7 +132,7 @@ def _gen_hamiltonian_partition(cfg: GeneratorConfig, *, allow_random_fallback: b
         )
 
     if allow_random_fallback:
-        return _gen_random_walk(cfg)
+        return _gen_random_walk(cfg, variant=variant)
 
     raise RuntimeError("Hamiltonian generator failed to partition the path into valid segments.")
 
@@ -1079,7 +1087,7 @@ def _sample_start_cell(used_endpoints: set[Coord], h: int, w: int, rng: Generato
             return cell
 
 
-def _gen_random_walk(cfg: GeneratorConfig) -> Level:
+def _gen_random_walk(cfg: GeneratorConfig, *, variant: VariantConfig) -> Level:
     """Generate a puzzle by placing endpoints using per-color random walks.
 
     For each color the algorithm performs the following steps
@@ -1116,12 +1124,13 @@ def _gen_random_walk(cfg: GeneratorConfig) -> Level:
     rng: Generator = np.random.default_rng(cfg.seed)
 
     letters: list[str] = [chr(ord("A") + i) for i in range(n_colors)]
-    max_global_attempts: int = max(1, min(cfg.max_retries, 20)) if cfg.must_fill else max(1, cfg.max_retries)
-    attempts_per_color: int = 200 if cfg.must_fill else 1000
+    must_fill: bool = variant.must_fill
+    max_global_attempts: int = max(1, min(cfg.max_retries, 20)) if must_fill else max(1, cfg.max_retries)
+    attempts_per_color: int = 200 if must_fill else 1000
 
     # Movement directions + precomputed neighbors
     base_dirs: list[Coord] = [(-1, 0), (0, 1), (1, 0), (0, -1)]
-    if cfg.allow_diagonal:
+    if variant.allow_diagonal:
         base_dirs.extend([(-1, -1), (-1, 1), (1, 1), (1, -1)])
     directions: tuple[Coord, ...] = tuple(base_dirs)
 
@@ -1167,7 +1176,7 @@ def _gen_random_walk(cfg: GeneratorConfig) -> Level:
                 if max_walk_len < min_walk_len:
                     continue
 
-                walk_length: int = max_walk_len if cfg.must_fill else int(rng.integers(min_walk_len, max_walk_len + 1))
+                walk_length: int = max_walk_len if must_fill else int(rng.integers(min_walk_len, max_walk_len + 1))
 
                 current: Coord = start_cell
                 visited_unique: set[Coord] = {current}
@@ -1216,15 +1225,17 @@ def _gen_random_walk(cfg: GeneratorConfig) -> Level:
                 end_cell: Coord = current
 
                 # Early lower-bound check: if LB >= min_dist, the shortest path is guaranteed >= min_dist
-                need_exact_dist: bool = _shortest_dist(start_cell, end_cell, cfg.allow_diagonal) < min_dist
+                need_exact_dist: bool = _shortest_dist(start_cell, end_cell, variant.allow_diagonal) < min_dist
                 exact_ok: bool = (
-                    _shortest_dist(start_cell, end_cell, cfg.allow_diagonal) >= min_dist if need_exact_dist else True
+                    _shortest_dist(start_cell, end_cell, variant.allow_diagonal) >= min_dist
+                    if need_exact_dist
+                    else True
                 )
 
                 if (
                     not valid_walk
                     or len(path_stack) < min_dist
-                    or (cfg.must_fill and len(path_stack) - 1 < walk_length)
+                    or (must_fill and len(path_stack) - 1 < walk_length)
                     or end_cell == start_cell
                     or end_cell in used_endpoints
                     or not exact_ok
@@ -1251,7 +1262,7 @@ def _gen_random_walk(cfg: GeneratorConfig) -> Level:
         if not success_all:
             continue
 
-        if cfg.must_fill and not _paths_cover_grid(solution_paths, h, w):
+        if must_fill and not _paths_cover_grid(solution_paths, h, w):
             continue
 
         bridges: set[Coord] | None = None
@@ -1264,12 +1275,12 @@ def _gen_random_walk(cfg: GeneratorConfig) -> Level:
         base_level: Level = Level(grid=["".join(row) for row in grid], bridges=bridges, solution=solution_paths)
         return _enhance_variability(base_level, rng)
 
-    if cfg.must_fill:
+    if must_fill:
         # Fall back to Hamiltonian partition generation to guarantee a must-fill puzzle.
         fallback_cfg: GeneratorConfig = replace(cfg, mode="hamiltonian", bridges_probability=0.0)
         fallback_level: Level | None
         try:
-            fallback_level = _gen_hamiltonian_partition(fallback_cfg, allow_random_fallback=False)
+            fallback_level = _gen_hamiltonian_partition(fallback_cfg, variant=variant, allow_random_fallback=False)
         except RuntimeError:
             fallback_level = None
         else:
@@ -1303,6 +1314,6 @@ def _gen_random_walk(cfg: GeneratorConfig) -> Level:
 
     raise ValueError(
         "Could not generate a valid random-walk level that satisfies configuration constraints."
-        if cfg.must_fill
+        if must_fill
         else "Could not generate a valid random-walk level with the provided configuration."
     )

@@ -17,8 +17,8 @@ def main() -> None:
     env: gym.Env[NDArray[np.uint8], np.int64] = gym.make(
         "NumberLinkRGB-v0",
         render_mode="human",
-        generator=GeneratorConfig(mode="hamiltonian", colors=7, width=8, height=8, must_fill=True, min_path_length=3),
-        variant=VariantConfig(allow_diagonal=False, cell_switching_mode=False, bridges_enabled=False),
+        generator=GeneratorConfig(mode="hamiltonian", colors=7, width=8, height=8, min_path_length=3),
+        variant=VariantConfig(must_fill=True, allow_diagonal=False, cell_switching_mode=False, bridges_enabled=False),
         render_config=RenderConfig(gridline_color=(60, 60, 60), gridline_thickness=1, show_endpoint_numbers=True),
         # generator=None,  # use a built-in level
         # level_id="builtin_7x7_ham_6c",

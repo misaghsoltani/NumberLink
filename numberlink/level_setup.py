@@ -80,8 +80,8 @@ def resolve_variant(variant: VariantConfig | None, generator: GeneratorConfig | 
     default_variant = VariantConfig()
     bridges_enabled_default: bool = default_variant.bridges_enabled
     return VariantConfig(
-        must_fill=generator.must_fill,
-        allow_diagonal=generator.allow_diagonal,
+        must_fill=True,
+        allow_diagonal=False,
         bridges_enabled=generator.bridges_probability > 0.0 or bridges_enabled_default,
         cell_switching_mode=default_variant.cell_switching_mode,
     )
@@ -195,7 +195,7 @@ def _resolve_level_source(
         last_lvl = None
 
         for _ in range(cfg.max_retries):
-            lvl = generate_level(cfg)
+            lvl = generate_level(cfg, variant=variant)
             last_lvl = lvl
 
             if _grid_ok(lvl.grid, min_path_length=generator.min_path_length, allow_diagonal=variant.allow_diagonal):
@@ -210,7 +210,7 @@ def _resolve_level_source(
 
         else:
             # True "last candidate" fallback without regenerating
-            lvl = last_lvl or generate_level(cfg)
+            lvl = last_lvl or generate_level(cfg, variant=variant)
             resolved_grid = lvl.grid
             resolved_bridges = set(lvl.bridges or ())
             resolved_level_id = None

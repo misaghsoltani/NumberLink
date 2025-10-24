@@ -9,7 +9,7 @@
 ![Static Badge](https://img.shields.io/badge/statically%20typed-mypy-039dfc)
 [![Build & Publish](https://github.com/misaghsoltani/NumberLink/actions/workflows/publish_to_pypi.yml/badge.svg)](https://github.com/misaghsoltani/NumberLink/actions/workflows/publish_to_pypi.yml)
 [![Deploy Documentation](https://github.com/misaghsoltani/NumberLink/actions/workflows/docs.yml/badge.svg)](https://github.com/misaghsoltani/NumberLink/actions/workflows/docs.yml)
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/run_human.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/numberlink_interactive.ipynb)
 
 <br/>
 
@@ -37,7 +37,7 @@ NumberLink boards follow these invariants:
 
 - Home page & documentation: [NumberLink](https://misaghsoltani.github.io/NumberLink/)
 - Quick start: [Quick Start](#quick-start)
-- Google Colab: [Open in Colab](https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/run_human.ipynb)
+- Google Colab: [Open in Colab](https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/numberlink_interactive.ipynb)
 - Installation guide: [Installation - documentation](https://misaghsoltani.github.io/NumberLink/installation.html)
 - CLI reference: [CLI - documentation](https://misaghsoltani.github.io/NumberLink/apidocs/numberlink/numberlink.cli.html)
 - Python API: [API reference - documentation](https://misaghsoltani.github.io/NumberLink/apidocs/index.html)
@@ -52,7 +52,7 @@ NumberLink boards follow these invariants:
 ## Quick start
 
 The [NumberLink documentation](https://misaghsoltani.github.io/NumberLink/) covers every workflow in detail. The
-highlights below show the recommended [Gymnasium](https://gymnasium.farama.org/) >= 1.0 usage patterns. You can also try it out in the [Google Colab example](https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/run_human.ipynb).
+highlights below show the recommended [Gymnasium](https://gymnasium.farama.org/) >= 1.0 usage patterns. You can also try it out in the [Google Colab example](https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/numberlink_interactive.ipynb).
 
 ### Install from PyPI
 
@@ -90,8 +90,7 @@ See the [installation guide](https://misaghsoltani.github.io/NumberLink/installa
 import gymnasium as gym
 import numpy as np
 
-import numberlink  # Auto-registers the NumberLink environments
-
+import numberlink  # Importing the package automatically registers the environments
 
 env = gym.make("NumberLinkRGB-v0", render_mode="rgb_array")
 
@@ -104,7 +103,6 @@ truncated = False
 while not (terminated or truncated):
     action = env.action_space.sample(mask=action_mask)
     observation, reward, terminated, truncated, info = env.step(action)
-    action_mask = info["action_mask"]
     action_mask = info["action_mask"].astype(np.int8)
 
 env.close()
@@ -122,7 +120,7 @@ customize generation, gameplay rules, and rendering. Examples live in the
 
 ```python
 import gymnasium as gym
-from numberlink import GeneratorConfig  # Auto-registers the NumberLink environments
+from numberlink import GeneratorConfig  # Importing from numberlink automatically registers
 import numpy as np
 
 vec_env = gym.make_vec(
@@ -133,7 +131,6 @@ vec_env = gym.make_vec(
 )
 
 observations, infos = vec_env.reset(seed=0)
-actions = [vec_env.single_action_space.sample(mask=mask) for mask in infos["action_mask"]]
 actions = [vec_env.single_action_space.sample(mask=mask.astype(np.int8)) for mask in infos["action_mask"]]
 observations, rewards, terminated, truncated, infos = vec_env.step(actions)
 vec_env.close()
@@ -147,10 +144,9 @@ batched workflows.
 
 ```python
 import gymnasium as gym
-import numberlink
+import numberlink  # Auto-registration on import
 from numberlink.viewer import NumberLinkViewer
 
-numberlink.register_numberlink_v0()
 env = gym.make("NumberLinkRGB-v0", render_mode="human")
 viewer = NumberLinkViewer(env)
 viewer.loop()
@@ -168,8 +164,8 @@ The package ships an inline viewer that mirrors the pygame controls when the opt
 env = gym.make(
     "NumberLinkRGB-v0",
     render_mode="human",
-    generator=GeneratorConfig( mode="hamiltonian", colors=7, width=8, height=8, must_fill=True, min_path_length=3),
-    variant=VariantConfig(allow_diagonal=False, cell_switching_mode=False, bridges_enabled=False),
+    generator=GeneratorConfig(mode="hamiltonian", colors=7, width=8, height=8, min_path_length=3),
+    variant=VariantConfig(must_fill=True, allow_diagonal=False, cell_switching_mode=False, bridges_enabled=False),
     render_config=RenderConfig(gridline_color=(60, 60, 60),gridline_thickness=1,show_endpoint_numbers=True,render_height=400,render_width=400),
 )
 env.reset()
@@ -184,8 +180,15 @@ contexts.
 
 ## Auto-registration
 
-Recommended usage is to install the package (for example via PyPI), and Gymnasium then discovers the environments via
-the package's entry-points.
+The package automatically registers the `NumberLinkRGB-v0` environment with Gymnasium when you import it:
+
+```python
+import numberlink
+```
+
+Additionally, when installed from PyPI, the package provides Gymnasium entry points that allow environment discovery
+without explicit imports. This dual mechanism ensures the environments are available whether you import the package
+directly or rely on Gymnasium's entry-point system.
 
 See the [documentation](https://misaghsoltani.github.io/NumberLink/) for more details.
 

@@ -41,33 +41,31 @@ def standard_scenarios() -> list[tuple[str, GeneratorConfig, VariantConfig, bool
     return [
         (
             "standard_must_fill",
-            GeneratorConfig(width=6, height=6, colors=4, must_fill=True, allow_diagonal=False, seed=42),
+            GeneratorConfig(width=6, height=6, colors=4, seed=42),
             VariantConfig(must_fill=True, allow_diagonal=False, bridges_enabled=False),
             False,
         ),
         (
             "partial_fill",
-            GeneratorConfig(width=6, height=6, colors=3, must_fill=False, allow_diagonal=False, seed=123),
+            GeneratorConfig(width=6, height=6, colors=3, seed=123),
             VariantConfig(must_fill=False, allow_diagonal=False, bridges_enabled=False),
             False,
         ),
         (
             "diagonal",
-            GeneratorConfig(width=6, height=6, colors=3, must_fill=True, allow_diagonal=True, seed=456),
+            GeneratorConfig(width=6, height=6, colors=3, seed=456),
             VariantConfig(must_fill=True, allow_diagonal=True, bridges_enabled=False),
             False,
         ),
         (
             "bridges",
-            GeneratorConfig(
-                width=7, height=7, colors=4, must_fill=True, allow_diagonal=False, bridges_probability=0.2, seed=789
-            ),
+            GeneratorConfig(width=7, height=7, colors=4, bridges_probability=0.2, seed=789),
             VariantConfig(must_fill=True, allow_diagonal=False, bridges_enabled=True),
             False,
         ),
         (
             "numbers",
-            GeneratorConfig(width=6, height=6, colors=4, must_fill=True, allow_diagonal=False, seed=321),
+            GeneratorConfig(width=6, height=6, colors=4, seed=321),
             VariantConfig(must_fill=True, allow_diagonal=False, bridges_enabled=False),
             True,
         ),

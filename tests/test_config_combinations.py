@@ -79,11 +79,11 @@ def run_env_and_capture(env: NumberLinkRGBEnv, max_steps: int = 30) -> tuple[lis
 @pytest.mark.parametrize(
     "gen_cfg",
     [
-        GeneratorConfig(mode="random_walk", width=5, height=5, colors=3, must_fill=True, seed=1),
-        GeneratorConfig(mode="random_walk", width=5, height=5, colors=3, allow_diagonal=True, seed=2),
+        GeneratorConfig(mode="random_walk", width=5, height=5, colors=3, seed=1),
+        GeneratorConfig(mode="random_walk", width=5, height=5, colors=3, seed=2),
         GeneratorConfig(mode="random_walk", width=6, height=5, colors=3, bridges_probability=0.3, seed=3),
-        GeneratorConfig(mode="hamiltonian", width=6, height=6, colors=4, must_fill=True, seed=4),
-        GeneratorConfig(mode="hamiltonian", width=5, height=6, colors=3, must_fill=False, seed=5),
+        GeneratorConfig(mode="hamiltonian", width=6, height=6, colors=4, seed=4),
+        GeneratorConfig(mode="hamiltonian", width=5, height=6, colors=3, seed=5),
     ],
 )
 @pytest.mark.parametrize(
@@ -108,11 +108,12 @@ def test_all_config_combinations_smoke(
     gen_cfg: GeneratorConfig, variant: VariantConfig, show_numbers: bool, reward: RewardConfig
 ) -> None:
     """Smoke test stepping across cross-product of Generator/Variant/Render/Reward configs."""
-    # Ensure logical consistency between generator and variant (diagonal/bridges/must_fill)
+    # Ensure logical consistency between generator and variant (diagonal/bridges)
     # Adjust variant flags based on generator defaults to avoid impossible combinations.
+    # GeneratorConfig no longer carries must_fill or allow_diagonal, use variant directly
     variant = VariantConfig(
-        must_fill=variant.must_fill if gen_cfg.must_fill else False,
-        allow_diagonal=variant.allow_diagonal or gen_cfg.allow_diagonal,
+        must_fill=variant.must_fill,
+        allow_diagonal=variant.allow_diagonal,
         bridges_enabled=variant.bridges_enabled or (gen_cfg.bridges_probability > 0.0),
         cell_switching_mode=variant.cell_switching_mode,
     )
@@ -190,17 +191,17 @@ def test_all_config_combinations_smoke(
         (
             "diagonal_no_fill",
             VariantConfig(must_fill=False, allow_diagonal=True, bridges_enabled=False, cell_switching_mode=False),
-            {"must_fill": False, "allow_diagonal": True},
+            {},
         ),
         (
             "bridges_diagonal",
             VariantConfig(must_fill=True, allow_diagonal=True, bridges_enabled=True, cell_switching_mode=False),
-            {"allow_diagonal": True, "bridges_probability": 0.3},
+            {"bridges_probability": 0.3},
         ),
         (
             "cell_switching_diagonal",
             VariantConfig(must_fill=True, allow_diagonal=True, bridges_enabled=False, cell_switching_mode=True),
-            {"allow_diagonal": True},
+            {},
         ),
     ],
 )
@@ -603,19 +604,14 @@ def test_visual_variety_showcase(output_dir: Path, seed: int) -> None:
     mode: str = "random_walk" if seed % 2 == 0 else "hamiltonian"
     # Only enable bridges for random_walk mode (hamiltonian doesn't support bridges)
     use_bridges: bool = (seed % 2 == 0) and (seed > 2)
+    allow_diag: bool = seed % 3 == 0
 
     gen = GeneratorConfig(
-        mode=mode,
-        width=7,
-        height=7,
-        colors=4,
-        allow_diagonal=(seed % 3 == 0),
-        bridges_probability=0.2 if use_bridges else 0.0,
-        seed=1300 + seed,
+        mode=mode, width=7, height=7, colors=4, bridges_probability=0.2 if use_bridges else 0.0, seed=1300 + seed
     )
     variant = VariantConfig(
         must_fill=True,
-        allow_diagonal=gen.allow_diagonal,
+        allow_diagonal=allow_diag,
         bridges_enabled=(gen.bridges_probability > 0),
         cell_switching_mode=False,
     )

@@ -97,7 +97,7 @@ class GeneratorConfig:
 
     The ``min_path_length`` field enforces a minimum shortest-path distance between
     endpoints. Distance is computed using Manhattan distance by default and Chebyshev
-    distance when ``allow_diagonal`` is ``True``.
+    distance when the :class:`VariantConfig` has ``allow_diagonal`` set to ``True``.
 
     :var mode: Generation algorithm identifier. Valid values are ``'random_walk'`` and ``'hamiltonian'``.
     :vartype mode: str
@@ -109,10 +109,6 @@ class GeneratorConfig:
     :vartype height: int
     :var colors: Number of color pairs to generate.
     :vartype colors: int
-    :var must_fill: If ``True``, generated puzzles are required to fill every board cell to be considered complete.
-    :vartype must_fill: bool
-    :var allow_diagonal: If ``True``, diagonal moves are allowed by the generator and influence distance calculations.
-    :vartype allow_diagonal: bool
     :var bridges_probability: Probability in the range ``[0.0, 1.0]`` that a bridge cell is added during generation.
     :vartype bridges_probability: float
     :var min_path_length: Minimum shortest-path distance enforced between the endpoints for each generated color pair.
@@ -126,13 +122,11 @@ class GeneratorConfig:
        details.
     """
 
-    mode: str = "random_walk"
+    mode: str = "hamiltonian"
     max_retries: int = 20
     width: int = 8
     height: int = 8
-    colors: int = 6
-    must_fill: bool = False
-    allow_diagonal: bool = False
+    colors: int = 7
     bridges_probability: float = 0.0
     min_path_length: int = 3
     seed: int | None = None
