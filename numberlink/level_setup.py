@@ -87,7 +87,7 @@ def resolve_variant(variant: VariantConfig | None, generator: GeneratorConfig | 
     )
 
 
-def _metric(a: tuple[int, int], b: tuple[int, int], *, allow_diagonal: bool) -> int:
+def _metric(a: Coord, b: Coord, *, allow_diagonal: bool) -> int:
     """Compute grid distance between two coordinates.
 
     Returns the Chebyshev distance when ``allow_diagonal`` is ``True`` and the Manhattan distance otherwise.
@@ -125,8 +125,8 @@ def _grid_ok(grid: Sequence[str], *, min_path_length: int, allow_diagonal: bool)
     :return: ``True`` when the grid is valid, otherwise ``False``.
     :rtype: bool
     """
-    letter_pos: dict[str, list[tuple[int, int]]] = {}
-    pts: list[tuple[int, int]]
+    letter_pos: dict[str, list[Coord]] = {}
+    pts: list[Coord]
     for r, row in enumerate(grid):
         for c, ch in enumerate(row):
             if ch == ".":
@@ -246,7 +246,7 @@ def _resolve_level_source(
     return resolved_grid, resolved_bridges, resolved_level_id, resolved_solution
 
 
-def _validate_grid(grid: Sequence[str]) -> tuple[int, int]:
+def _validate_grid(grid: Sequence[str]) -> Coord:
     """Validate grid shape and return its height and width.
 
     The function ensures the grid has at least one row and that all rows are the same width. It returns a tuple
@@ -477,9 +477,9 @@ def build_level_template(
     palette_arrays: list[NDArray[np.uint8]]
     palette_map, palette_arrays = _build_palette(letters, palette)
 
-    endpoints: list[list[tuple[int, int]]] = []
+    endpoints: list[list[Coord]] = []
     for letter in letters:
-        coords: list[tuple[int, int]] = [
+        coords: list[Coord] = [
             (r, c) for r, row in enumerate(resolved_grid) for c, ch in enumerate(row) if ch == letter
         ]
         if len(coords) != 2:

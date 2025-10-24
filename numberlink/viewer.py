@@ -978,7 +978,7 @@ class NumberLinkViewer:
         self._draw_replay_overlay()
 
     @staticmethod
-    def _metrics_for_scale(scale: int, *, line_spacing: int) -> tuple[int, int, int]:
+    def _metrics_for_scale(scale: int, *, line_spacing: int) -> RGBInt:
         """Return character cell width, char height, and line spacing for a given scale.
 
         This reproduces the simple metrics logic previously defined as nested helpers in the viewer methods.

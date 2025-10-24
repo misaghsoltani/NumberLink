@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from gymnasium.envs.registration import EnvSpec
 
     from .config import GeneratorConfig, RenderConfig, RewardConfig, VariantConfig
-    from .types import Coord, RenderMode
+    from .types import Coord, RenderMode, RGBInt
 
 
 def register_numberlink_v0(env_id: str = "NumberLinkRGB-v0") -> None:
@@ -100,7 +100,7 @@ def env_creator(
     reward_config: RewardConfig | None = None,
     render_config: RenderConfig | None = None,
     step_limit: int | None = None,
-    palette: dict[str, tuple[int, int, int]] | None = None,
+    palette: dict[str, RGBInt] | None = None,
     solution: list[list[Coord]] | None = None,
 ) -> NumberLinkRGBEnv:
     """Entry-point factory for Gymnasium. Returns a NumberLinkRGBEnv instance.
@@ -135,7 +135,7 @@ def vector_env_creator(
     reward_config: RewardConfig | None = None,
     render_config: RenderConfig | None = None,
     step_limit: int | None = None,
-    palette: dict[str, tuple[int, int, int]] | None = None,
+    palette: dict[str, RGBInt] | None = None,
     solution: list[list[Coord]] | None = None,
 ) -> NumberLinkRGBVectorEnv:
     """Create a vectorized NumberLink environment.
@@ -154,4 +154,5 @@ def vector_env_creator(
         render_config=render_config,
         step_limit=step_limit,
         palette=palette,
+        solution=solution,
     )

@@ -66,8 +66,7 @@ class Snapshot(TypedDict):
     _lane_v: NDArray[np.integer]
     _lane_h: NDArray[np.integer]
     _heads: list[list[Coord]]
-    # Stacks contain CellLane tuples (row, col, lane) per the runtime representation
-    # used by :class:`numberlink.env.NumberLinkRGBEnv`.
+    # Stacks contain CellLane tuples (row, col, lane) per the runtime representation used by `env.NumberLinkRGBEnv`.
     _stacks: list[list[list[CellLane]]]
     _closed: NDArray[np.bool_]
     _steps: int

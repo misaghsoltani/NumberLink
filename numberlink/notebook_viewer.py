@@ -1270,9 +1270,7 @@ class NumberLinkNotebookViewer:
             with contextlib.suppress(Exception):
                 print(self.env._render_text())
 
-    def _draw_cell_border(
-        self, frame: NDArray[np.uint8], row: int, col: int, color: tuple[int, int, int], thickness: int
-    ) -> None:
+    def _draw_cell_border(self, frame: NDArray[np.uint8], row: int, col: int, color: RGBInt, thickness: int) -> None:
         """Draw a rectangular border around a grid cell in the rendered frame."""
         if row < 0 or row >= self.env.H or col < 0 or col >= self.env.W:
             return
@@ -1298,7 +1296,7 @@ class NumberLinkNotebookViewer:
             frame[r0:r1, right] = color
 
     @staticmethod
-    def _resolve_color(color: tuple[int, int, int] | None, *, default: tuple[int, int, int]) -> tuple[int, int, int]:
+    def _resolve_color(color: RGBInt | None, *, default: RGBInt) -> RGBInt:
         """Resolve an optional color to an RGB tuple.
 
         :param color: Optional tuple in ``(R, G, B)`` order. When ``None`` the provided default is used.

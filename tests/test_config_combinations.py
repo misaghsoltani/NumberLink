@@ -8,6 +8,7 @@ from numpy.typing import NDArray
 import pytest
 
 from numberlink import GeneratorConfig, NumberLinkRGBEnv, RenderConfig, RewardConfig, VariantConfig
+from numberlink.types import RGBInt
 
 from .helpers import save_gif
 from .test_utils import add_frame_border
@@ -108,9 +109,6 @@ def test_all_config_combinations_smoke(
     gen_cfg: GeneratorConfig, variant: VariantConfig, show_numbers: bool, reward: RewardConfig
 ) -> None:
     """Smoke test stepping across cross-product of Generator/Variant/Render/Reward configs."""
-    # Ensure logical consistency between generator and variant (diagonal/bridges)
-    # Adjust variant flags based on generator defaults to avoid impossible combinations.
-    # GeneratorConfig no longer carries must_fill or allow_diagonal, use variant directly
     variant = VariantConfig(
         must_fill=variant.must_fill,
         allow_diagonal=variant.allow_diagonal,
@@ -171,17 +169,17 @@ def test_all_config_combinations_smoke(
         (
             "no_must_fill",
             VariantConfig(must_fill=False, allow_diagonal=False, bridges_enabled=False, cell_switching_mode=False),
-            {"must_fill": False},
+            {},
         ),
         (
             "diagonal",
             VariantConfig(must_fill=True, allow_diagonal=True, bridges_enabled=False, cell_switching_mode=False),
-            {"allow_diagonal": True},
+            {},
         ),
         (
             "bridges",
             VariantConfig(must_fill=True, allow_diagonal=False, bridges_enabled=True, cell_switching_mode=False),
-            {"bridges_probability": 0.3},
+            {"mode": "random_walk", "bridges_probability": 0.3},
         ),
         (
             "cell_switching",
@@ -196,7 +194,7 @@ def test_all_config_combinations_smoke(
         (
             "bridges_diagonal",
             VariantConfig(must_fill=True, allow_diagonal=True, bridges_enabled=True, cell_switching_mode=False),
-            {"bridges_probability": 0.3},
+            {"mode": "random_walk", "bridges_probability": 0.3},
         ),
         (
             "cell_switching_diagonal",
@@ -313,9 +311,7 @@ def test_visual_bridges_probability(output_dir: Path, bridge_prob: float, name: 
         (3, (0, 0, 255), "thicker_blue"),
     ],
 )
-def test_visual_endpoint_borders(
-    output_dir: Path, border_thick: int, border_color: tuple[int, int, int], name: str
-) -> None:
+def test_visual_endpoint_borders(output_dir: Path, border_thick: int, border_color: RGBInt, name: str) -> None:
     """Visual test for different endpoint border thicknesses and colors."""
     gen = GeneratorConfig(width=6, height=6, colors=3, seed=400)
     render: RenderConfig = visual_render_config(
@@ -348,9 +344,7 @@ def test_visual_endpoint_borders(
         ((255, 0, 0), 2, "red_thick"),
     ],
 )
-def test_visual_gridlines(
-    output_dir: Path, gridline_color: tuple[int, int, int] | None, gridline_thick: int, name: str
-) -> None:
+def test_visual_gridlines(output_dir: Path, gridline_color: RGBInt | None, gridline_thick: int, name: str) -> None:
     """Visual test for different gridline colors and thicknesses."""
     gen = GeneratorConfig(width=6, height=6, colors=3, seed=500)
     render: RenderConfig = visual_render_config(
@@ -382,7 +376,7 @@ def test_visual_gridlines(
         ((20, 40, 20), "dark_green"),
     ],
 )
-def test_visual_background_colors(output_dir: Path, bg_color: tuple[int, int, int], name: str) -> None:
+def test_visual_background_colors(output_dir: Path, bg_color: RGBInt, name: str) -> None:
     """Visual test for different background colors."""
     gen = GeneratorConfig(width=6, height=6, colors=3, seed=600)
     render: RenderConfig = visual_render_config(
@@ -414,8 +408,8 @@ def test_visual_background_colors(output_dir: Path, bg_color: tuple[int, int, in
 def test_visual_endpoint_numbers(
     output_dir: Path,
     show_numbers: bool,
-    font_color: tuple[int, int, int],
-    font_border_color: tuple[int, int, int],
+    font_color: RGBInt,
+    font_border_color: RGBInt,
     font_border_thick: int,
     name: str,
 ) -> None:
@@ -561,9 +555,7 @@ def test_visual_reward_configs(output_dir: Path, reward_name: str, reward: Rewar
 @pytest.mark.visual
 def test_visual_all_features_combined(output_dir: Path) -> None:
     """Visual test combining multiple advanced features."""
-    gen = GeneratorConfig(
-        mode="random_walk", width=8, height=8, colors=5, allow_diagonal=True, bridges_probability=0.2, seed=1200
-    )
+    gen = GeneratorConfig(mode="random_walk", width=8, height=8, colors=5, bridges_probability=0.2, seed=1200)
     variant = VariantConfig(must_fill=True, allow_diagonal=True, bridges_enabled=True, cell_switching_mode=False)
     render: RenderConfig = visual_render_config(
         gen.height,

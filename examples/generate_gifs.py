@@ -19,6 +19,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from numberlink.config import GeneratorConfig, RenderConfig, VariantConfig
 from numberlink.env import NumberLinkRGBEnv
+from numberlink.types import RGBInt
 
 if TYPE_CHECKING:
     from argparse import Namespace
@@ -193,7 +194,7 @@ def generate_gifs(
             if variant.must_fill or variant.bridges_enabled:
                 base_min_path = 3
 
-            attempt_specs: list[tuple[int, int, int]] = [
+            attempt_specs: list[RGBInt] = [
                 (base_size, base_colors, base_min_path),
                 (base_size + 1, base_colors, max(2, base_min_path - 1)),
                 (base_size + 1, max(3, base_colors - 1), 2),

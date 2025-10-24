@@ -5,11 +5,11 @@ from collections.abc import Sequence
 import numpy as np
 from numpy.typing import NDArray
 
+from numberlink.types import RGBInt
+
 
 def add_frame_border(
-    image: NDArray[np.uint8] | Sequence[NDArray[np.uint8]],
-    border_px: int = 4,
-    color: tuple[int, int, int] = (255, 255, 255),
+    image: NDArray[np.uint8] | Sequence[NDArray[np.uint8]], border_px: int = 4, color: RGBInt = (255, 255, 255)
 ) -> NDArray[np.uint8]:
     """Return a copy of image with a solid border around it.
 
