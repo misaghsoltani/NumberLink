@@ -11,6 +11,7 @@ construction utilities used by the environment.
 from __future__ import annotations
 
 from collections import deque
+from dataclasses import replace
 from typing import TYPE_CHECKING
 
 from gymnasium import spaces
@@ -31,7 +32,7 @@ if TYPE_CHECKING:
 
     from .config import GeneratorConfig, RenderConfig, RewardConfig, VariantConfig
     from .level_setup import LevelTemplate
-    from .types import Coord, RenderMode, RGBInt
+    from .types import ActType, Coord, RenderMode, RGBInt
 
 InfoValue: TypeAlias = NDArray[np.uint8] | NDArray[np.unsignedinteger] | NDArray[np.bool_] | list[str | None]
 InfoDict: TypeAlias = dict[str, InfoValue]
@@ -80,12 +81,13 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
         render_mode: RenderMode | None = None,
         level_id: str | None = None,
         variant: VariantConfig | None = None,
-        bridges: Iterable[tuple[int, int]] | None = None,
+        bridges: Iterable[Coord] | None = None,
         generator: GeneratorConfig | None = None,
         reward_config: RewardConfig | None = None,
         render_config: RenderConfig | None = None,
         step_limit: int | None = None,
-        palette: dict[str, tuple[int, int, int]] | None = None,
+        palette: dict[str, RGBInt] | None = None,
+        solution: list[list[Coord]] | None = None,
     ) -> None:
         """Initialize the vectorized environment and allocate state arrays.
 
@@ -105,32 +107,81 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
         :param render_config: Visual rendering style configuration.
         :param step_limit: Maximum steps before truncation. If ``None`` use ``10 * grid area``.
         :param palette: Optional mapping from color names to RGB tuples.
+        :param solution: Optional list of per-color coordinate paths representing a solved puzzle.
         """
-        self._template: LevelTemplate = build_level_template(
-            grid=grid,
-            level_id=level_id,
-            variant=variant,
-            bridges=bridges,
-            generator=generator,
-            reward_config=reward_config,
-            render_config=render_config,
-            palette=palette,
+        self.render_mode = render_mode
+        self._num_envs: int = int(num_envs)
+        if self._num_envs <= 0:
+            raise ValueError("num_envs must be positive")
+
+        self._source_grid: tuple[str, ...] | None = tuple(str(row) for row in grid) if grid is not None else None
+        self._source_bridges: tuple[Coord, ...] | None = (
+            tuple((coord[0], coord[1]) for coord in bridges) if bridges is not None else None
+        )
+        self._source_level_id: str | None = level_id
+        self._variant_override: VariantConfig | None = variant
+        self._reward_config_override: RewardConfig | None = reward_config
+        self._render_config_override: RenderConfig | None = render_config
+        self._palette_override: dict[str, RGBInt] | None = dict(palette) if palette is not None else None
+        generator_normalized: GeneratorConfig | None = self._normalize_generator_config(generator)
+        self._generator_config: GeneratorConfig | None = generator_normalized
+        self._step_limit_override: int | None = step_limit
+        self._source_solution: list[list[Coord]] | None = (
+            [[(r, c) for r, c in path] for path in solution] if solution is not None else None
         )
 
-        self.render_mode: RenderMode | None = render_mode
-        self.variant: VariantConfig = self._template.variant
-        self._reward_cfg: RewardConfig = self._template.reward_config
-        self._render_cfg: RenderConfig = self._template.render_config
-        self.level_id: str | None = self._template.level_id
+        template: LevelTemplate = build_level_template(
+            grid=self._source_grid,
+            level_id=self._source_level_id,
+            variant=self._variant_override,
+            bridges=self._source_bridges,
+            generator=generator_normalized,
+            reward_config=self._reward_config_override,
+            render_config=self._render_config_override,
+            palette=self._palette_override,
+            solution=self._source_solution,
+        )
 
-        self._num_envs: int = num_envs
-        self._height: int = self._template.height
-        self._width: int = self._template.width
-        self._num_colors: int = self._template.num_colors
-        self._num_dirs: int = self._template.num_dirs
-        self._actions_per_color: int = self._template.actions_per_color
-        self._action_size: int = self._template.action_space_size
-        self._cell_action_size: int = self._template.cell_switch_action_space_size
+        single_observation_space: spaces.Box
+        single_action_space: spaces.Discrete
+        single_observation_space, single_action_space = self._load_template(template)
+
+        super().__init__()
+        self.num_envs = self._num_envs
+        self.single_observation_space = single_observation_space
+        self.single_action_space = single_action_space
+        self.observation_space = batch_space(single_observation_space, self._num_envs)
+        self.action_space = batch_space(single_action_space, self._num_envs)
+
+        self._reset_masked(np.ones((self._num_envs,), dtype=np.bool_))
+
+    @staticmethod
+    def _normalize_generator_config(generator: GeneratorConfig | None) -> GeneratorConfig | None:
+        """Ensure generator configurations using bridges fall back to random walk mode."""
+        if generator is None:
+            return None
+        if generator.bridges_probability and generator.mode != "random_walk":
+            return replace(generator, mode="random_walk")
+        return generator
+
+    def _load_template(self, template: LevelTemplate) -> tuple[spaces.Box, spaces.Discrete]:
+        """Load a :class:`numberlink.level_setup.LevelTemplate` and initialize derived state."""
+        self._template: LevelTemplate = template
+        self.variant: VariantConfig = template.variant
+        self._reward_cfg: RewardConfig = template.reward_config
+        self._render_cfg: RenderConfig = template.render_config
+        self.level_id: str | None = template.level_id
+
+        self._height: int = template.height
+        self._width: int = template.width
+        self.H: int = self._height
+        self.W: int = self._width
+        self._num_colors: int = template.num_colors
+        self.num_colors: int = self._num_colors
+        self._num_dirs: int = template.num_dirs
+        self._actions_per_color: int = template.actions_per_color
+        self._action_size: int = template.action_space_size
+        self._cell_action_size: int = template.cell_switch_action_space_size
         self._cell_action_stride: int = self._num_colors + 1
 
         max_dim: int = max(self._height, self._width)
@@ -144,38 +195,41 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
         self._action_index_dtype: type[np.unsignedinteger] = select_unsigned_dtype(max(self._action_size - 1, 0))
         self._cell_index_dtype: type[np.unsignedinteger] = select_unsigned_dtype(max(self._cell_action_size - 1, 0))
 
-        self._dirs: NDArray[np.signedinteger] = self._template.dirs.astype(self._coord_dtype, copy=False)
-        self._endpoints: NDArray[np.signedinteger] = self._template.endpoints.astype(self._coord_dtype, copy=False)
+        self._dirs: NDArray[np.signedinteger] = template.dirs.astype(self._coord_dtype, copy=False)
+        self._dir_to_index: dict[Coord, int] = {
+            (int(vec[0]), int(vec[1])): int(idx) for idx, vec in enumerate(self._dirs)
+        }
+        self._endpoints: NDArray[np.signedinteger] = template.endpoints.astype(self._coord_dtype, copy=False)
         self._endpoint_mask: NDArray[np.bool_] = np.zeros((self._height, self._width), dtype=np.bool_)
         ep_rows: NDArray[np.intp] = self._endpoints[:, :, 0].reshape(-1).astype(np.intp, copy=False)
         ep_cols: NDArray[np.intp] = self._endpoints[:, :, 1].reshape(-1).astype(np.intp, copy=False)
         self._endpoint_mask[ep_rows, ep_cols] = True
-        self._bridges_mask: NDArray[np.bool_] = self._template.bridges_mask.copy()
+        self._bridges_mask: NDArray[np.bool_] = template.bridges_mask.copy()
 
-        self.max_steps: int = step_limit if step_limit is not None else 10 * self._stack_capacity
+        self.max_steps: int = (
+            self._step_limit_override if self._step_limit_override is not None else 10 * self._stack_capacity
+        )
         self._step_count_dtype: type[np.unsignedinteger] = select_unsigned_dtype(self.max_steps)
 
-        # Calculate render dimensions based on RenderConfig
-        self._pixels_per_cell_h: int = 1
-        self._pixels_per_cell_w: int = 1
-        obs_height: int = self._height
-        obs_width: int = self._width
-
+        pixels_per_cell_h_candidate: int = 1
+        pixels_per_cell_w_candidate: int = 1
         if self._render_cfg.render_height is not None:
             if self._render_cfg.render_height < self._height:
                 raise ValueError(
                     f"render_height ({self._render_cfg.render_height}) must be >= grid height ({self._height})"
                 )
-            self._pixels_per_cell_h = self._render_cfg.render_height // self._height
-            obs_height = self._pixels_per_cell_h * self._height
-
+            pixels_per_cell_h_candidate = max(1, self._render_cfg.render_height // self._height)
         if self._render_cfg.render_width is not None:
             if self._render_cfg.render_width < self._width:
                 raise ValueError(
                     f"render_width ({self._render_cfg.render_width}) must be >= grid width ({self._width})"
                 )
-            self._pixels_per_cell_w = self._render_cfg.render_width // self._width
-            obs_width = self._pixels_per_cell_w * self._width
+            pixels_per_cell_w_candidate = max(1, self._render_cfg.render_width // self._width)
+        pixels_per_cell: int = min(pixels_per_cell_h_candidate, pixels_per_cell_w_candidate)
+        self._pixels_per_cell_h: int = pixels_per_cell
+        self._pixels_per_cell_w: int = pixels_per_cell
+        obs_height: int = self._pixels_per_cell_h * self._height
+        obs_width: int = self._pixels_per_cell_w * self._width
 
         single_observation_space: spaces.Box = spaces.Box(
             low=0, high=255, shape=(obs_height, obs_width, 3), dtype=np.uint8
@@ -184,19 +238,10 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
             self._cell_action_size if self.variant.cell_switching_mode else self._action_size
         )
 
-        super().__init__()
-        self.num_envs: int = num_envs
-        self.single_observation_space: spaces.Box = single_observation_space
-        self.single_action_space: spaces.Discrete = single_action_space
-        self.observation_space: spaces.Space[ObsType] = batch_space(single_observation_space, num_envs)
-        self.action_space: spaces.Space[NDArray[np.int_]] = batch_space(single_action_space, num_envs)
-
-        self._palette: NDArray[np.uint8] = np.stack(self._template.palette_arrays, axis=0)
-        self._letters: list[str] = list(self._template.letters)
-
+        self._palette: NDArray[np.uint8] = np.stack(template.palette_arrays, axis=0)
+        self._letters: list[str] = list(template.letters)
         self._stack_index: NDArray[np.signedinteger] = np.arange(self._stack_capacity, dtype=self._stack_len_dtype)
 
-        # Occupancy grids use compact unsigned color codes (0 = empty, 1..N = colors)
         self._base_grid: NDArray[np.unsignedinteger] = np.zeros(
             (self._height, self._width), dtype=self._color_code_dtype
         )
@@ -210,16 +255,18 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
             (self._num_colors, 2, self._stack_capacity), dtype=self._coord_dtype
         )
         self._stack_cols_base: NDArray[np.signedinteger] = np.zeros_like(self._stack_rows_base)
-        # Lane codes are small enumerations -> uint8
         self._stack_lane_base: NDArray[np.uint8] = np.zeros((self._num_colors, 2, self._stack_capacity), dtype=np.uint8)
         self._stack_len_base: NDArray[np.signedinteger] = np.ones((self._num_colors, 2), dtype=self._stack_len_dtype)
         self._heads_base: NDArray[np.signedinteger] = np.zeros((self._num_colors, 2, 2), dtype=self._coord_dtype)
+        self._arm_presence_base: NDArray[np.bool_] = np.zeros(
+            (self._num_colors, 2, self._height, self._width), dtype=np.bool_
+        )
 
         for color_idx in range(self._num_colors):
             color_code: int = color_idx + 1
             for head_idx in (0, 1):
-                row: int = self._endpoints[color_idx, head_idx, 0]
-                col: int = self._endpoints[color_idx, head_idx, 1]
+                row: int = int(self._endpoints[color_idx, head_idx, 0])
+                col: int = int(self._endpoints[color_idx, head_idx, 1])
                 lane_code: np.uint8 = LANE_NORMAL
                 if self._bridges_mask[row, col]:
                     self._base_lane_v[row, col] = color_code
@@ -232,6 +279,7 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
                 self._stack_lane_base[color_idx, head_idx, 0] = lane_code
                 self._heads_base[color_idx, head_idx, 0] = row
                 self._heads_base[color_idx, head_idx, 1] = col
+                self._arm_presence_base[color_idx, head_idx, row, col] = True
 
         action_indices: NDArray[np.unsignedinteger] = np.arange(
             max(self._action_size, 1), dtype=self._action_index_dtype
@@ -259,32 +307,149 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
             self._decode_cell_color = (cell_indices % colors_plus_clear).astype(self._color_code_dtype, copy=False)
 
         self._grid_codes: NDArray[np.unsignedinteger] = np.zeros(
-            (num_envs, self._height, self._width), dtype=self._color_code_dtype
+            (self._num_envs, self._height, self._width), dtype=self._color_code_dtype
         )
         self._lane_v: NDArray[np.unsignedinteger] = np.zeros(
-            (num_envs, self._height, self._width), dtype=self._color_code_dtype
+            (self._num_envs, self._height, self._width), dtype=self._color_code_dtype
         )
         self._lane_h: NDArray[np.unsignedinteger] = np.zeros(
-            (num_envs, self._height, self._width), dtype=self._color_code_dtype
+            (self._num_envs, self._height, self._width), dtype=self._color_code_dtype
         )
         self._stack_rows: NDArray[np.signedinteger] = np.zeros(
-            (num_envs, self._num_colors, 2, self._stack_capacity), dtype=self._coord_dtype
+            (self._num_envs, self._num_colors, 2, self._stack_capacity), dtype=self._coord_dtype
         )
         self._stack_cols: NDArray[np.signedinteger] = np.zeros_like(self._stack_rows)
         self._stack_lane: NDArray[np.uint8] = np.zeros(
-            (num_envs, self._num_colors, 2, self._stack_capacity), dtype=np.uint8
+            (self._num_envs, self._num_colors, 2, self._stack_capacity), dtype=np.uint8
         )
         self._stack_len: NDArray[np.signedinteger] = np.zeros(
-            (num_envs, self._num_colors, 2), dtype=self._stack_len_dtype
+            (self._num_envs, self._num_colors, 2), dtype=self._stack_len_dtype
         )
-        self._heads: NDArray[np.signedinteger] = np.zeros((num_envs, self._num_colors, 2, 2), dtype=self._coord_dtype)
-        self._closed: NDArray[np.bool_] = np.zeros((num_envs, self._num_colors), dtype=np.bool_)
-        self._step_count: NDArray[np.unsignedinteger] = np.zeros((num_envs,), dtype=self._step_count_dtype)
-        self._done_mask: NDArray[np.bool_] = np.zeros((num_envs,), dtype=np.bool_)
+        self._heads: NDArray[np.signedinteger] = np.zeros(
+            (self._num_envs, self._num_colors, 2, 2), dtype=self._coord_dtype
+        )
+        self._closed: NDArray[np.bool_] = np.zeros((self._num_envs, self._num_colors), dtype=np.bool_)
+        self._step_count: NDArray[np.unsignedinteger] = np.zeros((self._num_envs,), dtype=self._step_count_dtype)
+        self._done_mask: NDArray[np.bool_] = np.zeros((self._num_envs,), dtype=np.bool_)
+        self._arm_presence: NDArray[np.bool_] = np.zeros(
+            (self._num_envs, self._num_colors, 2, self._height, self._width), dtype=np.bool_
+        )
+        self._env_indices: NDArray[np.intp] = np.arange(self._num_envs, dtype=np.intp)
+        self._tmp_color_indices: NDArray[np.unsignedinteger] = np.zeros(
+            (self._num_envs,), dtype=self._color_index_dtype
+        )
+        self._tmp_head_indices: NDArray[np.unsignedinteger] = np.zeros((self._num_envs,), dtype=self._head_dtype)
+        self._tmp_dir_indices: NDArray[np.unsignedinteger] = np.zeros((self._num_envs,), dtype=self._dir_dtype)
+        self._path_action_mask: NDArray[np.uint8] = np.zeros((self._num_envs, self._action_size), dtype=np.uint8)
+        self._allow_buffer: NDArray[np.bool_] = np.zeros((self._num_envs,), dtype=np.bool_)
+        self._apply_buffer: NDArray[np.bool_] = np.zeros((self._num_envs,), dtype=np.bool_)
+        self._visit_buffer: NDArray[np.bool_] = np.zeros((self._height, self._width), dtype=np.bool_)
+        self._visit_buffer_alt: NDArray[np.bool_] = np.zeros((self._height, self._width), dtype=np.bool_)
+        self._bfs_queue: deque[Coord] = deque()
 
-        self._static_cell_mask: NDArray[np.uint8] | None = None
+        self._static_cell_mask: NDArray[np.uint8] | None = (
+            self._build_cell_switch_mask() if self.variant.cell_switching_mode else None
+        )
+
+        self._solution_coords: list[list[Coord]] | None = (
+            [[(int(r), int(c)) for r, c in path] for path in template.solution]
+            if template.solution is not None
+            else None
+        )
+        self._solution_actions: list[ActType] | None = self._compute_solution_actions()
+
+        return single_observation_space, single_action_space
+
+    def _compute_solution_actions(self) -> list[ActType] | None:
+        """Return solution actions derived from precomputed coordinate paths when available."""
+        if self._solution_coords is None:
+            return None
+
+        actions: list[ActType]
         if self.variant.cell_switching_mode:
-            self._static_cell_mask = self._build_cell_switch_mask()
+            actions = []
+            for color_idx, path in enumerate(self._solution_coords):
+                if len(path) <= 2:
+                    continue
+                for row, col in path[1:-1]:
+                    try:
+                        actions.append(self.encode_cell_switching_action(row, col, color_idx + 1))
+                    except ValueError:
+                        continue
+            return actions if actions else None
+
+        actions = []
+        for color_idx, path in enumerate(self._solution_coords):
+            if len(path) <= 1:
+                continue
+            ep0: Coord = (int(self._endpoints[color_idx, 0, 0]), int(self._endpoints[color_idx, 0, 1]))
+            ep1: Coord = (int(self._endpoints[color_idx, 1, 0]), int(self._endpoints[color_idx, 1, 1]))
+            if path[0] == ep0:
+                head_idx = 0
+            elif path[0] == ep1:
+                head_idx = 1
+            else:
+                continue
+            for idx in range(len(path) - 1):
+                cur_r, cur_c = path[idx]
+                nxt_r, nxt_c = path[idx + 1]
+                dr: int = int(nxt_r) - int(cur_r)
+                dc: int = int(nxt_c) - int(cur_c)
+                dir_idx: int | None = self._dir_to_index.get((dr, dc))
+                if dir_idx is None:
+                    continue
+                action_idx: int = color_idx * self._actions_per_color + head_idx * self._num_dirs + dir_idx
+                actions.append(action_idx)
+
+        return actions if actions else None
+
+    def encode_cell_switching_action(self, row: int, col: int, color_value: int) -> int:
+        """Encode a cell assignment into the flat action index used in cell switching mode."""
+        colors_plus_clear: int = self._num_colors + 1
+        if not (0 <= row < self._height and 0 <= col < self._width and 0 <= color_value < colors_plus_clear):
+            raise ValueError("Cell switching action components out of range")
+        return (row * self._width + col) * colors_plus_clear + color_value
+
+    def get_solution(self) -> list[ActType] | None:
+        """Return a copy of the precomputed solution action list when available."""
+        if self._solution_actions is None:
+            return None
+        return list(self._solution_actions)
+
+    def regenerate_level(self, seed: int | None = None) -> tuple[ObsType, InfoDict]:
+        """Regenerate the current template using the stored generator configuration."""
+        if self._generator_config is None:
+            raise RuntimeError("regenerate_level requires an environment created with a generator configuration")
+
+        base_generator: GeneratorConfig = self._generator_config
+        generator_seed: int | None = (
+            seed if seed is not None else (None if base_generator.seed is None else base_generator.seed + 1)
+        )
+        new_generator: GeneratorConfig = replace(base_generator, seed=generator_seed)
+        normalized_generator: GeneratorConfig | None = self._normalize_generator_config(new_generator)
+
+        template: LevelTemplate = build_level_template(
+            grid=self._source_grid,
+            level_id=self._source_level_id,
+            variant=self._variant_override,
+            bridges=self._source_bridges,
+            generator=normalized_generator,
+            reward_config=self._reward_config_override,
+            render_config=self._render_config_override,
+            palette=self._palette_override,
+            solution=self._source_solution,
+        )
+
+        single_observation_space: spaces.Box
+        single_action_space: spaces.Discrete
+        single_observation_space, single_action_space = self._load_template(template)
+        self.single_observation_space = single_observation_space
+        self.single_action_space = single_action_space
+        self.observation_space = batch_space(single_observation_space, self._num_envs)
+        self.action_space = batch_space(single_action_space, self._num_envs)
+
+        self._generator_config = normalized_generator
+        return self.reset(seed=seed)
 
     # Gymnasium API
 
@@ -424,6 +589,7 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
         self._closed[idx] = False
         self._step_count[idx] = 0
         self._done_mask[idx] = False
+        self._arm_presence[idx] = self._arm_presence_base
 
     # Step helpers
 
@@ -510,13 +676,16 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
         if self._action_size == 0:
             return valid
 
-        env_idx: NDArray[np.intp] = np.arange(self._num_envs, dtype=np.intp)
+        env_idx: NDArray[np.intp] = self._env_indices
 
         in_range: NDArray[np.bool_] = (actions >= 0) & (actions < self._action_size)
 
-        colors: NDArray[np.unsignedinteger] = np.zeros((self._num_envs,), dtype=self._color_index_dtype)
-        heads: NDArray[np.unsignedinteger] = np.zeros((self._num_envs,), dtype=self._head_dtype)
-        dirs: NDArray[np.unsignedinteger] = np.zeros((self._num_envs,), dtype=self._dir_dtype)
+        colors: NDArray[np.unsignedinteger] = self._tmp_color_indices
+        colors.fill(0)
+        heads: NDArray[np.unsignedinteger] = self._tmp_head_indices
+        heads.fill(0)
+        dirs: NDArray[np.unsignedinteger] = self._tmp_dir_indices
+        dirs.fill(0)
         colors[in_range] = self._decode_color[actions[in_range]]
         heads[in_range] = self._decode_head[actions[in_range]]
         dirs[in_range] = self._decode_dir[actions[in_range]]
@@ -682,6 +851,7 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
                 self._lane_v[env_sel[bi], row_sel[bi], col_sel[bi]] = 0
                 self._lane_h[env_sel[bi], row_sel[bi], col_sel[bi]] = 0
 
+        self._arm_presence[env_sel, color_sel, head_sel, row_sel, col_sel] = False
         self._stack_len[env_sel, color_sel, head_sel] -= 1
 
     def _occupy_targets(
@@ -756,6 +926,7 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
         self._stack_cols[env_idx, color_idx, head_idx, positions] = cols
         self._stack_lane[env_idx, color_idx, head_idx, positions] = lane_codes
         self._stack_len[env_idx, color_idx, head_idx] = positions + 1
+        self._arm_presence[env_idx, color_idx, head_idx, rows, cols] = True
 
     def _can_occupy_targets(
         self,
@@ -833,12 +1004,9 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
             return np.zeros((0,), dtype=np.bool_)
 
         other_head: NDArray[np.integer] = 1 - head_idx
-        other_rows: NDArray[np.signedinteger] = self._stack_rows[env_idx, color_idx, other_head]
-        other_cols: NDArray[np.signedinteger] = self._stack_cols[env_idx, color_idx, other_head]
-        other_len: NDArray[np.signedinteger] = self._stack_len[env_idx, color_idx, other_head]
-        active: NDArray[np.bool_] = self._stack_index[None, :] < other_len[:, None]
-        match: NDArray[np.bool_] = (other_rows == rows[:, None]) & (other_cols == cols[:, None]) & active
-        return np.any(match, axis=1)
+        row_idx: NDArray[np.intp] = rows.astype(np.intp, copy=False)
+        col_idx: NDArray[np.intp] = cols.astype(np.intp, copy=False)
+        return self._arm_presence[env_idx, color_idx, other_head, row_idx, col_idx]
 
     def _lane_codes(
         self, dir_idx: NDArray[np.integer], rows: NDArray[np.integer], cols: NDArray[np.integer]
@@ -911,8 +1079,10 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
         ):
             return False
 
-        visited: NDArray[np.bool_] = np.zeros((self._height, self._width), dtype=np.bool_)
-        queue: deque[tuple[int, int]] = deque()
+        visited: NDArray[np.bool_] = self._visit_buffer
+        visited.fill(False)
+        queue: deque[Coord] = self._bfs_queue
+        queue.clear()
         queue.append((start_r, start_c))
         visited[start_r, start_c] = True
 
@@ -983,6 +1153,7 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
             solved &= filled
 
         dirs: NDArray[np.intp] = self._dirs
+        bridge_mask_global: NDArray[np.bool_] = self._bridges_mask
         for env in range(self._num_envs):
             if not solved[env]:
                 continue
@@ -994,58 +1165,70 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
                 ep1_r: int = self._endpoints[ci, 1, 0]
                 ep1_c: int = self._endpoints[ci, 1, 1]
 
-                visited: set[tuple[int, int]] = set()
-                queue: deque[tuple[int, int]] = deque([(ep0_r, ep0_c)])
-                visited.add((ep0_r, ep0_c))
-                found: bool = False
+                visited_map: NDArray[np.bool_] = self._visit_buffer
+                visited_map.fill(False)
+                queue: deque[Coord] = self._bfs_queue
+                queue.clear()
+                queue.append((ep0_r, ep0_c))
+                visited_map[ep0_r, ep0_c] = True
 
-                r: int
-                c: int
                 while queue:
                     r, c = queue.popleft()
-                    if (r, c) == (ep1_r, ep1_c):
-                        found = True
+                    if r == ep1_r and c == ep1_c:
                         break
                     for dr, dc in dirs:
-                        nr: int = r + dr
-                        nc: int = c + dc
-                        if not (0 <= nr < self._height and 0 <= nc < self._width) or (nr, nc) in visited:
+                        nr: int = r + int(dr)
+                        nc: int = c + int(dc)
+                        if not (0 <= nr < self._height and 0 <= nc < self._width):
                             continue
-
+                        if visited_map[nr, nc]:
+                            continue
                         if self._cell_has_color(env, nr, nc, color_code):
-                            visited.add((nr, nc))
+                            visited_map[nr, nc] = True
                             queue.append((nr, nc))
 
-                if not found:
+                if not visited_map[ep1_r, ep1_c]:
                     solved[env] = False
                     break
 
-                for r in range(self._height):
-                    for c in range(self._width):
-                        if not self._cell_has_color(env, r, c, color_code):
+                color_mask: NDArray[np.bool_] = self._visit_buffer_alt
+                color_mask.fill(False)
+                grid_env: NDArray[np.unsignedinteger] = self._grid_codes[env]
+                lane_v_env: NDArray[np.unsignedinteger] = self._lane_v[env]
+                lane_h_env: NDArray[np.unsignedinteger] = self._lane_h[env]
+                non_bridge_mask: NDArray[np.bool_] = (~bridge_mask_global) & (grid_env == color_code)
+                color_mask[non_bridge_mask] = True
+                if np.any(bridge_mask_global):
+                    color_mask[(bridge_mask_global) & (lane_v_env == color_code)] = True
+                    color_mask[(bridge_mask_global) & (lane_h_env == color_code)] = True
+
+                if np.any(color_mask & ~visited_map):
+                    solved[env] = False
+                    break
+
+                coords: NDArray[np.intp] = np.argwhere(color_mask)
+                for coord in coords:
+                    r = int(coord[0])
+                    c = int(coord[1])
+                    neighbour_count: int = 0
+                    for dr, dc in dirs:
+                        nr = r + int(dr)
+                        nc = c + int(dc)
+                        if not (0 <= nr < self._height and 0 <= nc < self._width):
                             continue
+                        if color_mask[nr, nc]:
+                            neighbour_count += 1
 
-                        neighbour_count: int = 0
-                        for dr, dc in dirs:
-                            nr = r + dr
-                            nc = c + dc
-                            if not (0 <= nr < self._height and 0 <= nc < self._width):
-                                continue
-
-                            if self._cell_has_color(env, nr, nc, color_code):
-                                neighbour_count += 1
-
-                        if (r, c) in {(ep0_r, ep0_c), (ep1_r, ep1_c)}:
-                            if neighbour_count != 1:
-                                solved[env] = False
-                                break
-
-                        elif neighbour_count != 2:
+                    if (r == ep0_r and c == ep0_c) or (r == ep1_r and c == ep1_c):
+                        if neighbour_count != 1:
                             solved[env] = False
                             break
-
-                    if not solved[env]:
+                    elif neighbour_count != 2:
+                        solved[env] = False
                         break
+
+                if not solved[env]:
+                    break
         return solved
 
     def _cell_has_color(self, env: int, row: int, col: int, color_code: int) -> bool:
@@ -1082,8 +1265,11 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
             assert self._static_cell_mask is not None
             return np.repeat(self._static_cell_mask[np.newaxis, :], self._num_envs, axis=0)
 
-        mask: NDArray[np.uint8] = np.zeros((self._num_envs, self._action_size), dtype=np.uint8)
-        env_idx: NDArray[np.intp] = np.arange(self._num_envs, dtype=np.intp)
+        mask: NDArray[np.uint8] = self._path_action_mask
+        mask.fill(0)
+        env_idx: NDArray[np.intp] = self._env_indices
+        allow_buf: NDArray[np.bool_] = self._allow_buffer
+        apply_buf: NDArray[np.bool_] = self._apply_buffer
         for ci in range(self._num_colors):
             color_code: int = ci + 1
             for hi in (0, 1):
@@ -1093,7 +1279,7 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
                 stack_len: NDArray[np.signedinteger] = self._stack_len[:, ci, hi]
                 has_prev: NDArray[np.bool_] = stack_len >= 2
                 prev_idx: NDArray[np.signedinteger] = np.clip(stack_len - 2, 0, self._stack_capacity - 1)
-                env_index: NDArray[np.intp] = np.arange(self._num_envs, dtype=np.intp)
+                env_index: NDArray[np.intp] = env_idx
                 # Use per-environment indexing to select the correct previous positions
                 prev_rows: NDArray[np.signedinteger] = self._stack_rows[env_index, ci, hi, prev_idx]
                 prev_cols: NDArray[np.signedinteger] = self._stack_cols[env_index, ci, hi, prev_idx]
@@ -1108,19 +1294,19 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
                     in_bounds: NDArray[np.bool_] = (
                         (target_r >= 0) & (target_r < self._height) & (target_c >= 0) & (target_c < self._width)
                     )
-                    allow: NDArray[np.bool_] = np.zeros((self._num_envs,), dtype=np.bool_)
+                    allow_buf.fill(False)
                     backtrack: NDArray[np.bool_] = (
                         in_bounds & has_prev & (target_r == prev_rows) & (target_c == prev_cols)
                     )
-                    allow |= backtrack
+                    allow_buf |= backtrack
                     join_head: NDArray[np.bool_] = (
                         in_bounds & (target_r == other_head[:, 0]) & (target_c == other_head[:, 1])
                     )
-                    allow |= join_head
+                    allow_buf |= join_head
                     join_endpoint: NDArray[np.bool_] = (
                         in_bounds & (target_r == other_ep[0]) & (target_c == other_ep[1]) & (other_len == 1)
                     )
-                    allow |= join_endpoint
+                    allow_buf |= join_endpoint
                     occupy_mask: NDArray[np.bool_] = in_bounds & ~(backtrack | join_head | join_endpoint)
                     if np.any(occupy_mask):
                         subset = np.where(occupy_mask)[0]
@@ -1142,13 +1328,13 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
                                 target_r[occ_subset],
                                 target_c[occ_subset],
                             )
-                            apply: NDArray[np.bool_] = np.zeros((self._num_envs,), dtype=np.bool_)
-                            apply[occ_subset] = ~interior
-                            allow |= apply
+                            apply_buf.fill(False)
+                            apply_buf[occ_subset] = ~interior
+                            allow_buf |= apply_buf
 
-                    mask[:, action_index] = allow
+                    mask[:, action_index] = allow_buf
 
-        return mask
+        return mask.copy()
 
     def _build_cell_switch_mask(self) -> NDArray[np.uint8]:
         """Build a static action mask used when cell switching mode is active.
@@ -1361,7 +1547,7 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
                 gridline_thickness=self._render_cfg.gridline_thickness or 0,
             )
             # Render numbers for each environment in the batch
-            num_color: tuple[int, int, int] = (
+            num_color: RGBInt = (
                 self._render_cfg.number_font_color[0],
                 self._render_cfg.number_font_color[1],
                 self._render_cfg.number_font_color[2],

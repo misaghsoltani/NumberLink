@@ -175,6 +175,17 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
         self._palette_map: dict[str, RGBInt] = dict(template.palette_map)
         self._palette_arrays: list[NDArray[np.uint8]] = [arr.copy() for arr in template.palette_arrays]
         self._palette_stack: NDArray[np.uint8] = np.stack(self._palette_arrays, axis=0)
+        self._endpoint_base_colors: NDArray[np.uint8] = np.repeat(self._palette_stack, 2, axis=0)
+        if self._render_cfg.connection_color_adjustment != 0:
+            adjusted_stack: NDArray[np.uint8] = np.clip(
+                self._palette_stack.astype(np.int16) + self._render_cfg.connection_color_adjustment, 0, 255
+            ).astype(np.uint8)
+            self._endpoint_adjusted_colors: NDArray[np.uint8] | None = np.repeat(adjusted_stack, 2, axis=0)
+        else:
+            self._endpoint_adjusted_colors = None
+        self._grid_background_color: NDArray[np.uint8] = np.array(
+            self._render_cfg.grid_background_color, dtype=np.uint8
+        )
         self._color_code_dtype: type[np.unsignedinteger] = select_unsigned_dtype(self.num_colors)
 
         self._solution_coords: list[list[Coord]] | None = template.solution
@@ -207,6 +218,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
             self._cell_switch_colors = (action_indices % colors_plus_clear).astype(np.int16, copy=False)
             allowed_cells: NDArray[np.bool_] = ~self._flat_endpoint_mask
             self._cell_switch_mask = np.repeat(allowed_cells, colors_plus_clear).astype(np.uint8, copy=False)
+            self._cell_switch_mask.flags.writeable = False
 
         self._dirs: NDArray[np.int8] = template.dirs.copy()
         self._num_dirs: int = template.num_dirs
@@ -242,6 +254,19 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
         obs_width = self._pixels_per_cell_w * self.W
 
         self.observation_space = spaces.Box(low=0, high=255, shape=(obs_height, obs_width, 3), dtype=np.uint8)
+
+        # Allocate reusable buffers for performance critical paths
+        path_action_size: int = self.num_colors * self._actions_per_color
+        self._path_action_mask: NDArray[np.uint8] = np.zeros((path_action_size,), dtype=np.uint8)
+        self._rgb_buffer: NDArray[np.uint8] = np.zeros((obs_height, obs_width, 3), dtype=np.uint8)
+        bridge_count: int = self._bridge_rows.size
+        self._bridge_color_buffer: NDArray[np.uint8] | None = (
+            np.zeros((bridge_count, 3), dtype=np.uint8) if bridge_count > 0 else None
+        )
+        self._visited_buffer: NDArray[np.bool_] = np.zeros((self.H, self.W), dtype=np.bool_)
+        self._visited_buffer_alt: NDArray[np.bool_] = np.zeros((self.H, self.W), dtype=np.bool_)
+        self._bfs_queue: deque[Coord] = deque()
+        self._arm_presence: NDArray[np.bool_] = np.zeros((self.num_colors, 2, self.H, self.W), dtype=np.bool_)
 
         self.max_steps: int = (
             self._step_limit_override if self._step_limit_override is not None else 10 * self.H * self.W
@@ -352,12 +377,15 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
         self._stacks = []
         self._heads = []
         self._closed = np.zeros((self.num_colors,), dtype=np.bool_)
+        self._arm_presence.fill(False)
         for ci, (ep0, ep1) in enumerate(self._endpoints):
             color_code: int = ci + 1
             self._stacks.append([[(*ep0, "n")], [(*ep1, "n")]])
             self._heads.append([ep0, ep1])
             self._occupy_cell(ep0, color_code, lane="n")
             self._occupy_cell(ep1, color_code, lane="n")
+            self._arm_presence[ci, 0, ep0[0], ep0[1]] = True
+            self._arm_presence[ci, 1, ep1[0], ep1[1]] = True
 
         if self.variant.cell_switching_mode:
             self._refresh_cell_switch_connections(range(self.num_colors))
@@ -549,7 +577,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
         return dr + dc
 
     # Action helpers
-    def _decode_action(self, a: int) -> tuple[int, int, int]:
+    def _decode_action(self, a: int) -> RGBInt:
         """Decode a packed action index into ``(color_index, head_index, direction)``.
 
         Return ``(-1, -1, -1)`` when the supplied index is out of range.
@@ -557,7 +585,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
         :param a: Encoded action index
         :type a: int
         :return: Decoded components as integers where each value is non-negative, or ``-1`` for invalid inputs
-        :rtype: tuple[int, int, int]
+        :rtype: RGBInt
         """
         total_actions: int = self.num_colors * self._actions_per_color
         if not (0 <= a < total_actions):
@@ -569,7 +597,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
         direction: int = r % self._num_dirs
         return color_index, head_index, direction
 
-    def _decode_cell_switching_action(self, a: int) -> tuple[int, int, int]:
+    def _decode_cell_switching_action(self, a: int) -> RGBInt:
         """Decode a cell-switching action into ``(row, col, color_value)``.
 
         Return ``(-1, -1, -1)`` when the action index is invalid. Color value ``0`` means clear the cell. Values
@@ -577,7 +605,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
 
         :param a: Encoded cell switching action index
         :type a: int ``(-1, -1, -1)`` if invalid
-        :rtype: tuple[int, int, int]
+        :rtype: RGBInt
         """
         if self._cell_switch_rows is None or self._cell_switch_cols is None or self._cell_switch_colors is None:
             colors_plus_clear: int = self.num_colors + 1
@@ -698,12 +726,15 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
         if not (self._cell_has_color(start, color_code) and self._cell_has_color(goal, color_code)):
             return False
 
-        visited: NDArray[np.bool_] = np.zeros((self.H, self.W), dtype=np.bool_)
-        q: deque[Coord] = deque([start])
-        visited[start] = True
+        visited: NDArray[np.bool_] = self._visited_buffer
+        visited.fill(False)
+        queue: deque[Coord] = self._bfs_queue
+        queue.clear()
+        queue.append(start)
+        visited[start[0], start[1]] = True
 
-        while q:
-            r, c = q.popleft()
+        while queue:
+            r, c = queue.popleft()
             if (r, c) == goal:
                 return True
 
@@ -718,7 +749,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
 
                 if self._cell_has_color((nr, nc), color_code):
                     visited[nr, nc] = True
-                    q.append((nr, nc))
+                    queue.append((nr, nc))
 
         return False
 
@@ -775,6 +806,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
             # Mark occupancy to reflect the meeting cell (especially for bridges)
             self._occupy_cell(tgt, color_code, lane=lane_here)
             stack.append((nr, nc, lane_here))
+            self._mark_presence(ci, hi, tgt)
             self._heads[ci][hi] = tgt
             self._closed[ci] = True
             return True
@@ -784,6 +816,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
         if tgt == other_ep and len(self._stacks[ci][other_hi]) == 1:
             stack.append((nr, nc, move_lane))
             self._occupy_cell(tgt, color_code, lane=move_lane)
+            self._mark_presence(ci, hi, tgt)
             self._heads[ci][hi] = tgt
             self._closed[ci] = True
             return True
@@ -793,13 +826,13 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
             return False
 
         # Avoid merging into the other arm interior (only head meeting is allowed)
-        other_stack: list[CellLane] = self._stacks[ci][other_hi]
-        if any((nr, nc) == (r, c) for (r, c, _ln) in other_stack):
+        if self._arm_presence[ci, other_hi, nr, nc]:
             return False
 
         # Place segment
         self._occupy_cell((nr, nc), color_code, lane=move_lane)
         stack.append((nr, nc, move_lane))
+        self._mark_presence(ci, hi, tgt)
         self._heads[ci][hi] = tgt
 
         # Update connection status - may have disconnected if was connected
@@ -873,72 +906,64 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
             ep0, ep1 = self._endpoints[ci]
             color_code: int = ci + 1
 
-            # BFS/DFS to check if endpoints are connected by this color
-            visited: set[Coord] = set()
-            queue: list[Coord] = [ep0]
-            visited.add(ep0)
-            found_other_endpoint: bool = False
+            visited_map: NDArray[np.bool_] = self._visited_buffer_alt
+            visited_map.fill(False)
+            queue: deque[Coord] = self._bfs_queue
+            queue.clear()
+            queue.append(ep0)
+            visited_map[ep0[0], ep0[1]] = True
+            found_other_endpoint: bool = ep0 == ep1
 
             while queue:
-                r, c = queue.pop(0)
-
+                r, c = queue.popleft()
                 if (r, c) == ep1:
                     found_other_endpoint = True
-                    break
-
-                # Check all adjacent cells (respecting diagonal setting)
                 for dr, dc in self._dirs:
                     nr: int = r + dr
                     nc: int = c + dc
-
                     if not (0 <= nr < self.H and 0 <= nc < self.W):
                         continue
-
-                    if (nr, nc) in visited:
+                    if visited_map[nr, nc]:
                         continue
-
-                    # Check if this cell has the same color
-                    has_color: bool = False
-                    if not self._bridges[nr, nc]:
-                        has_color = self._grid_codes[nr, nc] == color_code
-                    else:
-                        # For bridges, check if either lane has this color
-                        has_color = self._lane_v[nr, nc] == color_code or self._lane_h[nr, nc] == color_code
-
-                    if has_color:
-                        visited.add((nr, nc))
+                    if self._cell_has_color((nr, nc), color_code):
+                        visited_map[nr, nc] = True
                         queue.append((nr, nc))
 
             if not found_other_endpoint:
                 return False
 
-            # Check for path validity: each non-endpoint cell should have exactly 2 neighbors of same color
-            # (i.e., no branches, no isolated loops)
-            for r in range(self.H):
-                for c in range(self.W):
-                    cell: Coord = (r, c)
+            color_mask: NDArray[np.bool_] = self._visited_buffer
+            color_mask.fill(False)
+            non_bridge_mask: NDArray[np.bool_] = (~self._bridges) & (self._grid_codes == color_code)
+            color_mask[non_bridge_mask] = True
+            if np.any(self._bridges):
+                bridge_mask: NDArray[np.bool_] = self._bridges
+                v_match: NDArray[np.bool_] = (self._lane_v == color_code) & bridge_mask
+                h_match: NDArray[np.bool_] = (self._lane_h == color_code) & bridge_mask
+                color_mask[v_match | h_match] = True
 
-                    # Check if this cell has this color
-                    if not self._cell_has_color(cell, color_code):
+            if np.any(color_mask & ~visited_map):
+                return False
+
+            coords: NDArray[np.intp] = np.argwhere(color_mask)
+            for coord in coords:
+                r = int(coord[0])
+                c = int(coord[1])
+                neighbor_count: int = 0
+                for dr, dc in self._dirs:
+                    nr = r + dr
+                    nc = c + dc
+                    if not (0 <= nr < self.H and 0 <= nc < self.W):
                         continue
+                    if color_mask[nr, nc]:
+                        neighbor_count += 1
 
-                    # Count neighbors of same color
-                    neighbor_count: int = 0
-                    for dr, dc in self._dirs:
-                        nr = r + dr
-                        nc = c + dc
-
-                        if not (0 <= nr < self.H and 0 <= nc < self.W):
-                            continue
-
-                        if self._cell_has_color((nr, nc), color_code):
-                            neighbor_count += 1
-
-                    if cell in {ep0, ep1}:
-                        if neighbor_count != 1:
-                            return False
-                    elif neighbor_count != 2:
+                cell_tuple: Coord = (r, c)
+                if cell_tuple in {ep0, ep1}:
+                    if neighbor_count != 1:
                         return False
+                elif neighbor_count != 2:
+                    return False
 
         return True
 
@@ -1013,6 +1038,14 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
             self._lane_v[r, c] = color_code
             self._lane_h[r, c] = color_code
 
+    def _mark_presence(self, ci: int, hi: int, cell: Coord) -> None:
+        """Mark a coordinate as occupied in the per-arm presence grid."""
+        self._arm_presence[ci, hi, cell[0], cell[1]] = True
+
+    def _clear_presence(self, ci: int, hi: int, cell: Coord) -> None:
+        """Clear a coordinate from the per-arm presence grid."""
+        self._arm_presence[ci, hi, cell[0], cell[1]] = False
+
     def _erase_last(self, ci: int, hi: int) -> None:
         """Erase the last placed segment for a color arm.
 
@@ -1032,9 +1065,11 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
 
         # Only protect the starting endpoint for this head, not the other endpoint
         starting_endpoint: Coord = self._endpoints[ci][hi]
-        if (last_r, last_c) == starting_endpoint:
+        last_cell: Coord = (last_r, last_c)
+        if last_cell == starting_endpoint:
             stack.append((last_r, last_c, last_lane))
             return
+        self._clear_presence(ci, hi, last_cell)
 
         if not self._bridges[last_r, last_c]:
             self._grid_codes[last_r, last_c] = 0
@@ -1122,48 +1157,66 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
         :return: One-dimensional binary mask for the discrete action space
         :rtype: NDArray[np.uint8]
         """
-        total_actions: int = self.num_colors * self._actions_per_color
-        mask: NDArray[np.uint8] = np.zeros((total_actions,), dtype=np.uint8)
+        mask: NDArray[np.uint8] = self._path_action_mask
+        if mask.size == 0:
+            return mask
+        mask.fill(0)
+        num_dirs: int = self._num_dirs
+        dirs: NDArray[np.int8] = self._dirs
+        bridges: NDArray[np.bool_] = self._bridges
+        heads: list[list[Coord]] = self._heads
+        stacks: list[list[list[CellLane]]] = self._stacks
+        endpoints: list[tuple[Coord, Coord]] = self._endpoints
+        presence: NDArray[np.bool_] = self._arm_presence
+        actions_per_color: int = self._actions_per_color
         for ci in range(self.num_colors):
-            # Remove the check for _closed[ci] - allow actions even when connected
+            heads_ci: list[Coord] = heads[ci]
+            stacks_ci: list[list[CellLane]] = stacks[ci]
+            endpoints_ci: tuple[Coord, Coord] = endpoints[ci]
+            presence_ci: NDArray[np.bool_] = presence[ci]
+            color_code: int = ci + 1
+            base_color_index: int = ci * actions_per_color
             for hi in (0, 1):
-                head_r, head_c = self._heads[ci][hi]
-                arm_stack: list[CellLane] = self._stacks[ci][hi]
-                for d in range(self._num_dirs):
-                    a: int = ci * self._actions_per_color + hi * self._num_dirs + d
-                    dr, dc = self._dirs[d]
-                    nr, nc = head_r + dr, head_c + dc
+                head_r, head_c = heads_ci[hi]
+                arm_stack: list[CellLane] = stacks_ci[hi]
+                stack_len: int = len(arm_stack)
+                prev_r: int | None = None
+                prev_c: int | None = None
+                if stack_len >= 2:
+                    prev_r, prev_c, _prev_lane = arm_stack[-2]
+                other_hi: int = 1 - hi
+                other_head_r, other_head_c = heads_ci[other_hi]
+                other_endpoint: Coord = endpoints_ci[other_hi]
+                other_stack_len: int = len(stacks_ci[other_hi])
+                presence_other: NDArray[np.bool_] = presence_ci[other_hi]
+                base_index: int = base_color_index + hi * num_dirs
+                for d in range(num_dirs):
+                    dr_i: int = int(dirs[d][0])
+                    dc_i: int = int(dirs[d][1])
+                    nr: int = head_r + dr_i
+                    nc: int = head_c + dc_i
                     if not (0 <= nr < self.H and 0 <= nc < self.W):
                         continue
-
-                    # backtrack allowed
-                    if len(arm_stack) >= 2 and (nr, nc) == (arm_stack[-2][0], arm_stack[-2][1]):
-                        mask[a] = 1
+                    action_index: int = base_index + d
+                    if prev_r is not None and nr == prev_r and nc == prev_c:
+                        mask[action_index] = 1
                         continue
-
-                    tgt: Coord = (nr, nc)
-                    other_hi: int = 1 - hi
-                    if tgt == self._heads[ci][other_hi]:
-                        mask[a] = 1
+                    if nr == other_head_r and nc == other_head_c:
+                        mask[action_index] = 1
                         continue
-
-                    other_ep: Coord = self._endpoints[ci][other_hi]
-                    other_stack: list[CellLane] = self._stacks[ci][other_hi]
-                    if tgt == other_ep and len(other_stack) == 1:
-                        mask[a] = 1
+                    if nr == other_endpoint[0] and nc == other_endpoint[1] and other_stack_len == 1:
+                        mask[action_index] = 1
                         continue
-
                     move_lane: Lane = "n"
-                    # Lane semantics only depend on the target cell
-                    if self._bridges[nr, nc]:
+                    if bridges[nr, nc]:
                         move_lane = "v" if (d % 2 == 0) else "h"
+                    if not self._can_occupy((nr, nc), color_code, lane=move_lane):
+                        continue
+                    if presence_other[nr, nc]:
+                        continue
+                    mask[action_index] = 1
 
-                    if self._can_occupy(tgt, ci + 1, lane=move_lane) and not any(
-                        (nr, nc) == (r, c) for (r, c, _ln) in other_stack
-                    ):
-                        mask[a] = 1
-
-        return mask
+        return mask.copy()
 
     def _render_rgb(self) -> ObsType:
         """Produce an RGB image representing the current grid state.
@@ -1175,10 +1228,9 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
         :rtype: ObsType
         """
         img: ObsType = np.zeros((self.H, self.W, 3), dtype=np.uint8)
-        # Apply background color per cell (before filling colors)
-        bg: NDArray[np.uint8] = np.array(self._render_cfg.grid_background_color, dtype=np.uint8)
-        if not np.all(bg == 0):
-            img[:, :] = bg
+        bg: NDArray[np.uint8] = self._grid_background_color
+        if np.any(bg != 0):
+            img[:] = bg
 
         # Fill normal cells directly from palette lookup
         normal_mask: NDArray[np.bool_] = (~self._bridges) & (self._grid_codes > 0)
@@ -1192,7 +1244,12 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
             cols = self._bridge_cols
             v_codes: NDArray[np.unsignedinteger] = self._lane_v[rows, cols]
             h_codes: NDArray[np.unsignedinteger] = self._lane_h[rows, cols]
-            bridge_colors: NDArray[np.uint8] = np.zeros((rows.size, 3), dtype=np.uint8)
+            bridge_colors: NDArray[np.uint8]
+            if self._bridge_color_buffer is None:
+                bridge_colors = np.zeros((rows.size, 3), dtype=np.uint8)
+            else:
+                bridge_colors = self._bridge_color_buffer
+                bridge_colors.fill(0)
 
             only_v: NDArray[np.bool_] = (v_codes != 0) & (h_codes == 0)
             if np.any(only_v):
@@ -1220,16 +1277,9 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
             ep_cols = self._endpoints_array[:, :, 1].reshape(-1).astype(np.intp, copy=False)
 
             if self._render_cfg.endpoint_border_thickness > 0:
-                # Render endpoints with base color. Border is drawn after upscaling
-                base_colors: NDArray[np.uint8] = np.repeat(self._palette_stack, 2, axis=0)
-                img[ep_rows, ep_cols] = base_colors
-            elif self._render_cfg.connection_color_adjustment != 0:
-                # Apply color adjustment when no border is used
-                adjusted: NDArray[np.uint8] = np.clip(
-                    self._palette_stack.astype(np.int16) + self._render_cfg.connection_color_adjustment, 0, 255
-                ).astype(np.uint8)
-                adjusted_colors: NDArray[np.uint8] = np.repeat(adjusted, 2, axis=0)
-                img[ep_rows, ep_cols] = adjusted_colors
+                img[ep_rows, ep_cols] = self._endpoint_base_colors
+            elif self._endpoint_adjusted_colors is not None:
+                img[ep_rows, ep_cols] = self._endpoint_adjusted_colors
 
         # Upscale if needed
         if self._pixels_per_cell_h > 1 or self._pixels_per_cell_w > 1:
@@ -1328,12 +1378,12 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
                 max_scale=self._render_cfg.number_font_max_scale,
                 gridline_thickness=self._render_cfg.gridline_thickness or 0,
             )
-            num_color: tuple[int, int, int] = (
+            num_color: RGBInt = (
                 self._render_cfg.number_font_color[0],
                 self._render_cfg.number_font_color[1],
                 self._render_cfg.number_font_color[2],
             )
-            num_border: tuple[int, int, int] = (
+            num_border: RGBInt = (
                 self._render_cfg.number_font_border_color[0],
                 self._render_cfg.number_font_border_color[1],
                 self._render_cfg.number_font_border_color[2],
