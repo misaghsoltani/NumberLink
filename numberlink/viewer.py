@@ -113,6 +113,15 @@ class NumberLinkViewer:
         if cell_size <= 0:
             raise ValueError(f"cell_size must be positive, got {cell_size}")
 
+        import warnings  # noqa: PLC0415
+
+        warnings.filterwarnings(
+            action="ignore",
+            message=r".*pkg_resources is deprecated as an API.*",
+            category=UserWarning,
+            module=r"pygame\.pkgdata",
+        )
+
         self.pygame: ModuleType = import_module("pygame")
         self._pygame_initialized: bool = False
 
