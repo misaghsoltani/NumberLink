@@ -221,18 +221,25 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
         self._pixels_per_cell_w: int = 1
         obs_height: int = self.H
         obs_width: int = self.W
+        pixels_per_cell_h_candidate: int = 1
+        pixels_per_cell_w_candidate: int = 1
 
         if self._render_cfg.render_height is not None:
             if self._render_cfg.render_height < self.H:
                 raise ValueError(f"render_height ({self._render_cfg.render_height}) must be >= grid height ({self.H})")
-            self._pixels_per_cell_h = self._render_cfg.render_height // self.H
-            obs_height = self._pixels_per_cell_h * self.H
+            pixels_per_cell_h_candidate = self._render_cfg.render_height // self.H
 
         if self._render_cfg.render_width is not None:
             if self._render_cfg.render_width < self.W:
                 raise ValueError(f"render_width ({self._render_cfg.render_width}) must be >= grid width ({self.W})")
-            self._pixels_per_cell_w = self._render_cfg.render_width // self.W
-            obs_width = self._pixels_per_cell_w * self.W
+            pixels_per_cell_w_candidate = self._render_cfg.render_width // self.W
+
+        # Use the minimum of the two to ensure cells are always square
+        pixels_per_cell: int = min(pixels_per_cell_h_candidate, pixels_per_cell_w_candidate)
+        self._pixels_per_cell_h = pixels_per_cell
+        self._pixels_per_cell_w = pixels_per_cell
+        obs_height = self._pixels_per_cell_h * self.H
+        obs_width = self._pixels_per_cell_w * self.W
 
         self.observation_space = spaces.Box(low=0, high=255, shape=(obs_height, obs_width, 3), dtype=np.uint8)
 
