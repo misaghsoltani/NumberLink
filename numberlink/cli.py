@@ -20,7 +20,7 @@ import json
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .config import GeneratorConfig, VariantConfig
+from .config import GeneratorConfig, RenderConfig, VariantConfig
 from .env import NumberLinkRGBEnv
 from .levels import LEVELS, load_level_from_file
 from .registration import register_numberlink_v0
@@ -95,7 +95,7 @@ def build_parser() -> ArgumentParser:
     viewer_parser.add_argument(
         "--must-fill",
         action=BooleanOptionalAction,
-        default=None,
+        default=True,
         help="Require all cells to be filled before the puzzle is solved.",
     )
     viewer_parser.add_argument(
@@ -125,8 +125,35 @@ def build_parser() -> ArgumentParser:
     viewer_parser.add_argument("--gen-mode", choices=["random_walk", "hamiltonian"], default="random_walk")
     viewer_parser.add_argument("--gen-width", type=int, default=8)
     viewer_parser.add_argument("--gen-height", type=int, default=8)
-    viewer_parser.add_argument("--gen-colors", type=int, default=5)
+    viewer_parser.add_argument("--gen-colors", type=int, default=7)
     viewer_parser.add_argument("--gen-min-path", type=int, default=3)
+    # Render configuration options
+    viewer_parser.add_argument(
+        "--endpoint-border-thickness", type=int, help="Border thickness for endpoints in pixels."
+    )
+    viewer_parser.add_argument("--connection-color-adjustment", type=int, help="Color adjustment for connections.")
+    viewer_parser.add_argument("--render-height", type=int, help="Total render height in pixels.")
+    viewer_parser.add_argument("--render-width", type=int, help="Total render width in pixels.")
+    viewer_parser.add_argument("--gridline-thickness", type=int, help="Gridline thickness in pixels.")
+    viewer_parser.add_argument(
+        "--show-endpoint-numbers", action=BooleanOptionalAction, help="Display color index numbers on endpoints."
+    )
+    viewer_parser.add_argument("--number-font-border-thickness", type=int, help="Font border thickness for numbers.")
+    viewer_parser.add_argument("--number-font-min-scale", type=int, help="Minimum font scale for endpoint labels.")
+    viewer_parser.add_argument("--number-font-max-scale", type=int, help="Maximum font scale for endpoint labels.")
+    viewer_parser.add_argument(
+        "--help-overlay-font-border-thickness", type=int, help="Font border thickness for help overlay."
+    )
+    viewer_parser.add_argument(
+        "--help-overlay-background-alpha", type=int, help="Alpha value for help overlay (0-255)."
+    )
+    viewer_parser.add_argument(
+        "--active-head-highlight-thickness", type=int, help="Thickness for active head highlight."
+    )
+    viewer_parser.add_argument("--cursor-highlight-thickness", type=int, help="Thickness for cursor highlight.")
+    viewer_parser.add_argument(
+        "--print-text-in-human-mode", action=BooleanOptionalAction, help="Print text representation in human mode."
+    )
     viewer_parser.set_defaults(handler=handle_viewer)
 
     board_parser: ArgumentParser = subparsers.add_parser(
@@ -156,7 +183,7 @@ def build_parser() -> ArgumentParser:
     board_parser.add_argument(
         "--must-fill",
         action=BooleanOptionalAction,
-        default=None,
+        default=True,
         help="Require all cells to be filled before the puzzle is solved.",
     )
     board_parser.add_argument(
@@ -183,6 +210,29 @@ def build_parser() -> ArgumentParser:
     board_parser.add_argument("--gen-height", type=int, default=8)
     board_parser.add_argument("--gen-colors", type=int, default=5)
     board_parser.add_argument("--gen-min-path", type=int, default=3)
+    # Render configuration options
+    board_parser.add_argument("--endpoint-border-thickness", type=int, help="Border thickness for endpoints in pixels.")
+    board_parser.add_argument("--connection-color-adjustment", type=int, help="Color adjustment for connections.")
+    board_parser.add_argument("--render-height", type=int, help="Total render height in pixels.")
+    board_parser.add_argument("--render-width", type=int, help="Total render width in pixels.")
+    board_parser.add_argument("--gridline-thickness", type=int, help="Gridline thickness in pixels.")
+    board_parser.add_argument(
+        "--show-endpoint-numbers", action=BooleanOptionalAction, help="Display color index numbers on endpoints."
+    )
+    board_parser.add_argument("--number-font-border-thickness", type=int, help="Font border thickness for numbers.")
+    board_parser.add_argument("--number-font-min-scale", type=int, help="Minimum font scale for endpoint labels.")
+    board_parser.add_argument("--number-font-max-scale", type=int, help="Maximum font scale for endpoint labels.")
+    board_parser.add_argument(
+        "--help-overlay-font-border-thickness", type=int, help="Font border thickness for help overlay."
+    )
+    board_parser.add_argument("--help-overlay-background-alpha", type=int, help="Alpha value for help overlay (0-255).")
+    board_parser.add_argument(
+        "--active-head-highlight-thickness", type=int, help="Thickness for active head highlight."
+    )
+    board_parser.add_argument("--cursor-highlight-thickness", type=int, help="Thickness for cursor highlight.")
+    board_parser.add_argument(
+        "--print-text-in-human-mode", action=BooleanOptionalAction, help="Print text representation in human mode."
+    )
     board_parser.set_defaults(handler=handle_board)
 
     levels_parser: ArgumentParser = subparsers.add_parser(
@@ -277,6 +327,167 @@ def build_variant_from_args(
     )
 
 
+def build_render_config_from_args(args: Namespace) -> RenderConfig | None:
+    """Create a :class:`numberlink.config.RenderConfig` from CLI arguments when overrides are present.
+
+    Return ``None`` when no render config arguments were provided, allowing the environment to use its default
+    configuration. When any render config option is specified, build and return a new
+    :class:`numberlink.config.RenderConfig` with overrides applied.
+
+    :param args: Parsed CLI arguments containing optional render config fields.
+    :return: New :class:`numberlink.config.RenderConfig` instance when overrides are present, otherwise ``None``.
+    :rtype: RenderConfig or None
+    """
+    default = RenderConfig()
+    overrides: dict[str, int | bool | None] = {}
+
+    # Map args to config fields
+    if args.endpoint_border_thickness is not None:
+        overrides["endpoint_border_thickness"] = args.endpoint_border_thickness
+    if args.connection_color_adjustment is not None:
+        overrides["connection_color_adjustment"] = args.connection_color_adjustment
+    if args.render_height is not None:
+        overrides["render_height"] = args.render_height
+    if args.render_width is not None:
+        overrides["render_width"] = args.render_width
+    if args.gridline_thickness is not None:
+        overrides["gridline_thickness"] = args.gridline_thickness
+    if args.show_endpoint_numbers is not None:
+        overrides["show_endpoint_numbers"] = args.show_endpoint_numbers
+    if args.number_font_border_thickness is not None:
+        overrides["number_font_border_thickness"] = args.number_font_border_thickness
+    if args.number_font_min_scale is not None:
+        overrides["number_font_min_scale"] = args.number_font_min_scale
+    if args.number_font_max_scale is not None:
+        overrides["number_font_max_scale"] = args.number_font_max_scale
+    if args.help_overlay_font_border_thickness is not None:
+        overrides["help_overlay_font_border_thickness"] = args.help_overlay_font_border_thickness
+    if args.help_overlay_background_alpha is not None:
+        overrides["help_overlay_background_alpha"] = args.help_overlay_background_alpha
+    if args.active_head_highlight_thickness is not None:
+        overrides["active_head_highlight_thickness"] = args.active_head_highlight_thickness
+    if args.cursor_highlight_thickness is not None:
+        overrides["cursor_highlight_thickness"] = args.cursor_highlight_thickness
+    if args.print_text_in_human_mode is not None:
+        overrides["print_text_in_human_mode"] = args.print_text_in_human_mode
+
+    if not overrides:
+        return None
+
+    # Build a RenderConfig explicitly with typed fields
+    # Explicitly type and validate each override to satisfy the type checker
+    endpoint_border_thickness: int = default.endpoint_border_thickness
+    if "endpoint_border_thickness" in overrides:
+        v: int | bool | None = overrides["endpoint_border_thickness"]
+        if isinstance(v, int):
+            endpoint_border_thickness = v
+
+    connection_color_adjustment: int = default.connection_color_adjustment
+    if "connection_color_adjustment" in overrides:
+        v = overrides["connection_color_adjustment"]
+        if isinstance(v, int):
+            connection_color_adjustment = v
+
+    render_height: int | None = default.render_height
+    if "render_height" in overrides:
+        v = overrides["render_height"]
+        if isinstance(v, int):
+            render_height = v
+
+    render_width: int | None = default.render_width
+    if "render_width" in overrides:
+        v = overrides["render_width"]
+        if isinstance(v, int):
+            render_width = v
+
+    gridline_thickness: int = default.gridline_thickness
+    if "gridline_thickness" in overrides:
+        v = overrides["gridline_thickness"]
+        if isinstance(v, int):
+            gridline_thickness = v
+
+    show_endpoint_numbers: bool = default.show_endpoint_numbers
+    if "show_endpoint_numbers" in overrides:
+        v = overrides["show_endpoint_numbers"]
+        if isinstance(v, bool):
+            show_endpoint_numbers = v
+
+    number_font_border_thickness: int = default.number_font_border_thickness
+    if "number_font_border_thickness" in overrides:
+        v = overrides["number_font_border_thickness"]
+        if isinstance(v, int):
+            number_font_border_thickness = v
+
+    number_font_min_scale: int = default.number_font_min_scale
+    if "number_font_min_scale" in overrides:
+        v = overrides["number_font_min_scale"]
+        if isinstance(v, int):
+            number_font_min_scale = v
+
+    number_font_max_scale: int | None = default.number_font_max_scale
+    if "number_font_max_scale" in overrides:
+        v = overrides["number_font_max_scale"]
+        if isinstance(v, int):
+            number_font_max_scale = v
+
+    help_overlay_font_border_thickness: int = default.help_overlay_font_border_thickness
+    if "help_overlay_font_border_thickness" in overrides:
+        v = overrides["help_overlay_font_border_thickness"]
+        if isinstance(v, int):
+            help_overlay_font_border_thickness = v
+
+    help_overlay_background_alpha: int = default.help_overlay_background_alpha
+    if "help_overlay_background_alpha" in overrides:
+        v = overrides["help_overlay_background_alpha"]
+        if isinstance(v, int):
+            help_overlay_background_alpha = v
+
+    active_head_highlight_thickness: int = default.active_head_highlight_thickness
+    if "active_head_highlight_thickness" in overrides:
+        v = overrides["active_head_highlight_thickness"]
+        if isinstance(v, int):
+            active_head_highlight_thickness = v
+
+    cursor_highlight_thickness: int = default.cursor_highlight_thickness
+    if "cursor_highlight_thickness" in overrides:
+        v = overrides["cursor_highlight_thickness"]
+        if isinstance(v, int):
+            cursor_highlight_thickness = v
+
+    print_text_in_human_mode: bool = default.print_text_in_human_mode
+    if "print_text_in_human_mode" in overrides:
+        v = overrides["print_text_in_human_mode"]
+        if isinstance(v, bool):
+            print_text_in_human_mode = v
+
+    return RenderConfig(
+        endpoint_border_thickness=endpoint_border_thickness,
+        endpoint_border_color=default.endpoint_border_color,
+        connection_color_adjustment=connection_color_adjustment,
+        render_height=render_height,
+        render_width=render_width,
+        grid_background_color=default.grid_background_color,
+        gridline_color=default.gridline_color,
+        gridline_thickness=gridline_thickness,
+        show_endpoint_numbers=show_endpoint_numbers,
+        number_font_color=default.number_font_color,
+        number_font_border_color=default.number_font_border_color,
+        number_font_border_thickness=number_font_border_thickness,
+        number_font_min_scale=number_font_min_scale,
+        number_font_max_scale=number_font_max_scale,
+        help_overlay_font_color=default.help_overlay_font_color,
+        help_overlay_font_border_color=default.help_overlay_font_border_color,
+        help_overlay_font_border_thickness=help_overlay_font_border_thickness,
+        help_overlay_background_color=default.help_overlay_background_color,
+        help_overlay_background_alpha=help_overlay_background_alpha,
+        active_head_highlight_color=default.active_head_highlight_color,
+        active_head_highlight_thickness=active_head_highlight_thickness,
+        cursor_highlight_thickness=cursor_highlight_thickness,
+        cursor_endpoint_highlight_color=default.cursor_endpoint_highlight_color,
+        print_text_in_human_mode=print_text_in_human_mode,
+    )
+
+
 def handle_register(args: Namespace) -> int:
     """Handle the ``register`` subcommand.
 
@@ -327,8 +538,6 @@ def handle_viewer(args: Namespace) -> int:
             height=args.gen_height,
             colors=args.gen_colors,
             min_path_length=args.gen_min_path,
-            must_fill=False,
-            allow_diagonal=bool(args.allow_diagonal) if args.allow_diagonal is not None else False,
             seed=args.seed,
         )
     bridges: Sequence[Coord] | None = load_bridges(args.bridges_file)
@@ -336,6 +545,7 @@ def handle_viewer(args: Namespace) -> int:
     variant: VariantConfig = build_variant_from_args(
         default_variant, args.must_fill, args.allow_diagonal, args.bridges_enabled, args.cell_switch
     )
+    render_config: RenderConfig | None = build_render_config_from_args(args)
     render_mode: RenderMode | None = None if args.render_mode == "none" else args.render_mode
     env: NumberLinkRGBEnv = NumberLinkRGBEnv(
         grid=grid,
@@ -345,6 +555,7 @@ def handle_viewer(args: Namespace) -> int:
         bridges=bridges,
         generator=gen,
         step_limit=args.step_limit,
+        render_config=render_config,
         solution=file_solution,
     )
     try:
@@ -404,8 +615,6 @@ def handle_board(args: Namespace) -> int:
             height=args.gen_height,
             colors=args.gen_colors,
             min_path_length=args.gen_min_path,
-            must_fill=False,
-            allow_diagonal=bool(args.allow_diagonal) if args.allow_diagonal is not None else False,
             seed=args.seed,
         )
     bridges: Sequence[Coord] | None = load_bridges(args.bridges_file)
@@ -413,6 +622,7 @@ def handle_board(args: Namespace) -> int:
     variant: VariantConfig = build_variant_from_args(
         default_variant, args.must_fill, args.allow_diagonal, args.bridges_enabled, args.cell_switch
     )
+    render_config: RenderConfig | None = build_render_config_from_args(args)
     env: NumberLinkRGBEnv = NumberLinkRGBEnv(
         grid=grid,
         render_mode="ansi",
@@ -420,6 +630,7 @@ def handle_board(args: Namespace) -> int:
         variant=variant,
         bridges=bridges,
         generator=gen,
+        render_config=render_config,
         solution=file_solution,
     )
     try:
