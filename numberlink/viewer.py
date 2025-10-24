@@ -243,7 +243,7 @@ class NumberLinkViewer:
 
                 mode_label: str = "Cell mode" if self.switch_mode else "Path mode"
                 caption: str = (
-                    f"NumberLinkRGB-v0 Viewer | {mode_label} | Color {self.sel_color + 1}/{self.env.num_colors}"
+                    f"NumberLinkRGB-v0 Viewer | {mode_label} | Color {self.sel_color}/{self.env.num_colors - 1}"
                 )
                 if not self.switch_mode:
                     caption += f" | Head {self.sel_head}"
@@ -529,7 +529,7 @@ class NumberLinkViewer:
 
     def _reset_view_state(self) -> None:
         """Synchronize viewer selections and cursor with the environment."""
-        self.sel_color = min(0, self.env.num_colors - 1) if self.env.num_colors > 0 else 0
+        self.sel_color = max(0, self.env.num_colors - 1) if self.env.num_colors > 0 else 0
         self.sel_head = 0
         self.switch_mode = self.env.variant.cell_switching_mode
         if self.switch_mode:

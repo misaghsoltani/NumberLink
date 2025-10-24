@@ -24,23 +24,26 @@ construct it with a prepared environment and call :meth:`numberlink.notebook_vie
 
 from __future__ import annotations
 
-import asyncio
+import contextlib
+from importlib import resources
 import io
-from typing import TYPE_CHECKING, TypedDict
+from pathlib import Path
+from typing import TYPE_CHECKING, NotRequired, TypedDict
 
 import numpy as np
 
 from .env import NumberLinkRGBEnv
 
 if TYPE_CHECKING:
-    from asyncio import Task
     from collections.abc import Callable
+    from importlib.resources.abc import Traversable
     from types import ModuleType
 
     import gymnasium as gym
     from IPython.display import DisplayHandle
     from ipywidgets import (
         HTML,
+        Box,
         Button,
         Dropdown,
         GridBox,
@@ -48,7 +51,6 @@ if TYPE_CHECKING:
         Image as IpyImage,
         IntSlider,
         Layout,
-        Play,
         ToggleButton,
         ToggleButtons,
         VBox,
@@ -83,10 +85,13 @@ class DOMEvent(TypedDict, total=True):
     :vartype ctrlKey: bool
     :ivar altKey: Whether the Alt modifier was active.
     :vartype altKey: bool
+    :ivar button: Primary button identifier for pointer events where ``buttons`` may be zero.
+    :vartype button: int
     """
 
     type: str
     buttons: int
+    button: NotRequired[int]
     relativeX: float
     relativeY: float
     key: str
@@ -102,11 +107,11 @@ class ObserveChange(TypedDict, total=True):
     This structure mirrors values passed to callback functions registered via ``observe`` on widgets. The viewer relies
     on the ``new`` field to determine the updated value for a setting.
 
-    :ivar new: New value of the observed trait. May be an ``int``, ``str`` or ``None`` depending on the widget.
-    :vartype new: int | str | None
+    :ivar new: New value of the observed trait. May be ``int``, ``str``, ``bytes`` or ``None`` depending on the widget.
+    :vartype new: int | str | bytes | None
     """
 
-    new: int | str | None
+    new: int | str | bytes | None
 
 
 class NumberLinkNotebookViewer:
@@ -188,30 +193,93 @@ class NumberLinkNotebookViewer:
 
         self._status_label: HTML = widgets.HTML()
         self._message_label: HTML = widgets.HTML()
+
         self._image_widget: IpyImage = widgets.Image(format="png")
-        self._image_widget.layout.border = "1px solid #b1b5ba"
+        self._image_widget.layout = widgets.Layout(border="1px solid #b1b5ba")
+        self._image_container = widgets.Box([self._image_widget])
+        self._image_container.layout = widgets.Layout(position="relative", width="auto")
+        self._image_widget.observe(self._on_image_value_change, names="value")
+        # Prevent default drag behavior in Colab and other notebook environments with robust CSS
+        self._image_widget.add_class("numberlink-viewer-image")
+        # Store style widget reference to prevent garbage collection
+        self._css_widget: HTML | None = None
+        with contextlib.suppress(Exception):
+            self._css_widget = widgets.HTML(
+                "<style>"
+                ".numberlink-viewer-image { "
+                "user-select: none !important; "
+                "-webkit-user-select: none !important; "
+                "-moz-user-select: none !important; "
+                "-ms-user-select: none !important; "
+                "-webkit-user-drag: none !important; "
+                "-khtml-user-drag: none !important; "
+                "-moz-user-drag: none !important; "
+                "-o-user-drag: none !important; "
+                "user-drag: none !important; "
+                "pointer-events: auto !important; "
+                "cursor: crosshair !important; "
+                "touch-action: none !important; "
+                "}"
+                ".numberlink-viewer-image:focus { "
+                "outline: 2px solid #4a9eff !important; "
+                "outline-offset: 2px !important; "
+                "}"
+                "</style>"
+            )
+            display(self._css_widget)
         self._color_selector: Dropdown = widgets.Dropdown(
-            description="Color", layout=widgets.Layout(width="200px"), style={"description_width": "60px"}
+            description="Color",
+            layout=widgets.Layout(width="200px"),
+            style={"description_width": "60px", "button_width": "auto"},
         )
-        self._prev_color_button: Button = widgets.Button(description="◀", layout=widgets.Layout(width="40px"))
-        self._next_color_button: Button = widgets.Button(description="▶", layout=widgets.Layout(width="40px"))
+        self._prev_color_button: Button = widgets.Button(
+            description="◀ Prev", layout=widgets.Layout(width="70px"), button_style="info", tooltip="Previous color"
+        )
+        self._next_color_button: Button = widgets.Button(
+            description="Next ▶", layout=widgets.Layout(width="70px"), button_style="info", tooltip="Next color"
+        )
         self._head_selector: ToggleButtons = widgets.ToggleButtons(
-            options=[("Head 0", 0), ("Head 1", 1)], layout=widgets.Layout(width="200px"), style={"button_width": "96px"}
+            options=[("Head 0", 0), ("Head 1", 1)],
+            layout=widgets.Layout(width="200px"),
+            style={"button_width": "96px"},
+            tooltips=["Select head 0", "Select head 1"],
         )
-        self._backtrack_button: Button = widgets.Button(description="Backtrack")
-        self._reset_button: Button = widgets.Button(description="Reset")
-        self._new_level_button: Button = widgets.Button(description="New level")
-        self._auto_paint_toggle: ToggleButton = widgets.ToggleButton(value=False, description="Paint on move")
-        self._paint_button: Button = widgets.Button(description="Paint cell")
-        self._clear_button: Button = widgets.Button(description="Clear cell")
+        self._backtrack_button: Button = widgets.Button(
+            description="⟲ Backtrack",
+            layout=widgets.Layout(width="110px"),
+            button_style="warning",
+            tooltip="Undo last move",
+        )
+        self._reset_button: Button = widgets.Button(
+            description="↻ Reset", layout=widgets.Layout(width="90px"), button_style="danger", tooltip="Reset puzzle"
+        )
+        self._new_level_button: Button = widgets.Button(
+            description="✨ New Level",
+            layout=widgets.Layout(width="110px"),
+            button_style="success",
+            tooltip="Generate new puzzle",
+        )
+        self._auto_paint_toggle: ToggleButton = widgets.ToggleButton(
+            value=False, description="🖌 Auto-paint", button_style="", tooltip="Automatically paint on cursor move"
+        )
+        self._paint_button: Button = widgets.Button(
+            description="🎨 Paint",
+            layout=widgets.Layout(width="80px"),
+            button_style="primary",
+            tooltip="Paint current cell",
+        )
+        self._clear_button: Button = widgets.Button(
+            description="✖ Clear", layout=widgets.Layout(width="80px"), button_style="", tooltip="Clear current cell"
+        )
 
         self._direction_grid: GridBox = self._build_direction_pad()
 
         # Help area
-        self._help_toggle: ToggleButton = widgets.ToggleButton(value=False, description="Show help")
+        self._help_toggle: ToggleButton = widgets.ToggleButton(
+            value=False, description="❓ Show Help", button_style="", tooltip="Toggle help overlay"
+        )
         self._help_html: HTML = widgets.HTML()
         self._help_html.layout.display = "none"
-        self._help_hide_task: Task[None] | None = None
 
         # Replay controls
         self._replay_state: str = "idle"  # 'idle' | 'playing' | 'paused'
@@ -220,20 +288,43 @@ class NumberLinkNotebookViewer:
         self._replay_interval_ms: int = 150
         self._pre_replay_snapshot: Snapshot | None = None
         self._replay_info: HTML = widgets.HTML()
-        self._play_ctrl: Play = widgets.Play(
-            interval=self._replay_interval_ms, value=0, min=0, max=1, step=1, disabled=True
+        self._replay_play_btn: ToggleButton = widgets.ToggleButton(
+            value=False,
+            description="▶",
+            tooltip="Play or pause solution replay",
+            layout=widgets.Layout(width="60px"),
+            button_style="success",
         )
-        self._replay_step_btn: Button = widgets.Button(description="Step ▶")
-        self._replay_stop_btn: Button = widgets.Button(description="Stop ⏹")
-        self._replay_restore_toggle: ToggleButton = widgets.ToggleButton(value=True, description="Restore on stop")
+        self._replay_step_btn: Button = widgets.Button(
+            description="⏭",
+            layout=widgets.Layout(width="48px"),
+            button_style="primary",
+            tooltip="Step through solution one move at a time",
+        )
+        self._replay_stop_btn: Button = widgets.Button(
+            description="■", layout=widgets.Layout(width="48px"), button_style="danger", tooltip="Stop solution replay"
+        )
+        self._replay_restore_toggle: ToggleButton = widgets.ToggleButton(
+            value=True,
+            description="Auto-Restore",
+            tooltip="Automatically restore puzzle state when stopping replay",
+            layout=widgets.Layout(width="120px"),
+            button_style="info",
+        )
         self._replay_speed: IntSlider = widgets.IntSlider(
             description="Speed (ms)",
             min=50,
             max=600,
             step=10,
             value=self._replay_interval_ms,
-            layout=widgets.Layout(width="280px"),
-            style={"description_width": "90px"},
+            layout=widgets.Layout(width="300px"),
+            style={"description_width": "80px"},
+            continuous_update=True,
+        )
+
+        # Internal Play widget for automatic animation
+        self._replay_play_widget: widgets.Play = widgets.Play(
+            value=0, min=0, max=0, step=1, interval=self._replay_interval_ms, disabled=True, show_repeat=False
         )
 
         self._link_callbacks()
@@ -257,6 +348,23 @@ class NumberLinkNotebookViewer:
         self._refresh_status()
         self._refresh_frame()
         self._display(self._root)
+
+    def _repr_svg_(self) -> str | None:  # noqa: PLW3201, PLR6301
+        """Return SVG preview for rich display in notebooks.
+
+        This special method is called by IPython's display system to show a preview thumbnail when the viewer object is
+        referenced in a notebook cell without calling :meth:`loop`. It reads and returns the content of the preview SVG
+        asset file.
+
+        :return: SVG markup as a string or ``None`` if the preview file cannot be read.
+        :rtype: str | None
+        """
+        try:
+            svg_resource: Traversable = resources.files("numberlink.assets").joinpath("notebook-viewer-preview.svg")
+            with resources.as_file(svg_resource) as svg_file:
+                return Path(svg_file).read_text(encoding="utf-8")
+        except Exception:
+            return None
 
     # UI composition
 
@@ -287,20 +395,36 @@ class NumberLinkNotebookViewer:
 
         # Replay row
         self._replay_row: HBox = widgets.HBox([
-            self._play_ctrl,
+            self._replay_play_btn,
             self._replay_step_btn,
             self._replay_stop_btn,
             self._replay_speed,
             self._replay_restore_toggle,
         ])
+        self._replay_row.layout.align_items = "center"
         self._replay_row.layout.display = "flex"
+
+        # Hidden Play widget must remain in the widget tree so the front-end timer animates frames.
+        play_layout: Layout = self._replay_play_widget.layout
+        play_layout.visibility = "hidden"
+        play_layout.width = "0px"
+        play_layout.height = "0px"
+        play_layout.margin = "0px"
+
+        self._replay_hidden_container: Box = widgets.Box([self._replay_play_widget])
+        hidden_layout: Layout = self._replay_hidden_container.layout
+        hidden_layout.visibility = "hidden"
+        hidden_layout.width = "0px"
+        hidden_layout.height = "0px"
+        hidden_layout.margin = "0px"
 
         self._root: VBox = widgets.VBox([
             self._status_label,
-            self._image_widget,
+            self._image_container,
             self._message_label,
             self._replay_row,
             self._replay_info,
+            self._replay_hidden_container,
             color_row,
             head_row,
             self._direction_grid,
@@ -325,7 +449,6 @@ class NumberLinkNotebookViewer:
         :return: Configured ipywidgets Button instance.
         """
         widgets: ModuleType = self._widgets
-
         btn: Button = widgets.Button(description=label, layout=size, disabled=not enabled)
 
         def _on_click(_: Button) -> None:
@@ -401,34 +524,43 @@ class NumberLinkNotebookViewer:
         # Help toggle
         def _on_help_toggled(_: ToggleButton) -> None:
             self._help_html.layout.display = "block" if self._help_toggle.value else "none"
-            if self._help_toggle.value:
-                try:
-                    if self._help_hide_task is not None and not self._help_hide_task.done():
-                        self._help_hide_task.cancel()
-                except Exception:
-                    pass
-                self._help_hide_task = asyncio.create_task(self._auto_hide_help())
+            # Note: Auto-hide is disabled since we're avoiding asyncio tasks
 
         self._help_toggle.observe(lambda change: _on_help_toggled(self._help_toggle), names="value")
 
         # Replay controls
-        self._play_ctrl.observe(self._on_play_value_change, names="value")
+        self._replay_play_btn.observe(self._on_replay_play_toggled, names="value")
         self._replay_step_btn.on_click(wrap(self._replay_step_once))
         self._replay_stop_btn.on_click(wrap(self._replay_stop))
         self._replay_speed.observe(self._on_replay_speed_change, names="value")
+        # Link Play widget to replay index
+        self._replay_play_widget.observe(self._on_play_widget_value_change, names="value")
 
     def _attach_pointer_events(self) -> None:
         """Attach mouse or touch event handlers to the image widget.
 
         Register an ipyevents Event to capture pointer activity using the ``relative`` coordinate system. The handler
-        forwards events to :meth:`numberlink.notebook_viewer.NumberLinkNotebookViewer._handle_pointer_event`.
+        forwards events to :meth:`numberlink.notebook_viewer.NumberLinkNotebookViewer._handle_pointer_event`. Events
+        are configured to prevent default browser behavior and stop propagation to ensure proper interaction in
+        environments like Google Colab where images may be treated as draggable elements by default.
 
         :return: ``None``
         """
         self._pointer_events: ModuleType = self._ipyevents.Event(
             source=self._image_widget,
-            watched_events=["mousedown", "mousemove", "mouseup", "mouseleave", "click"],
+            watched_events=[
+                "mousedown",
+                "mousemove",
+                "mouseup",
+                "mouseleave",
+                "click",
+                "touchstart",
+                "touchmove",
+                "touchend",
+                "touchcancel",
+            ],
             prevent_default_action=True,
+            stop_propagation=True,
             coordinate_system="relative",
         )
         self._pointer_events.on_dom_event(self._handle_pointer_event)
@@ -457,20 +589,37 @@ class NumberLinkNotebookViewer:
 
         :param event: Event payload received from ipyevents.
         """
-        event_type: str | None = event["type"]
-        if not event_type:
+        event_type_raw: str | None = event.get("type")
+        if not event_type_raw:
             return
 
-        buttons_int: int = event["buttons"]
+        event_type: str = event_type_raw.lower()
+        buttons_val: int = int(event.get("buttons", 0))
+        if buttons_val == 0:
+            buttons_val = int(event.get("button", 0))
+        left_pressed: bool = (buttons_val & 1) == 1
 
-        if event_type == "mousedown" and buttons_int == 1:
+        # Normalize touch events to mouse-like semantics
+        if event_type in {"touchstart", "pointerdown", "mousedown"}:
             self._drag_active = True
+            self.last_mouse_cell = None
+            with contextlib.suppress(Exception):
+                self._image_widget.focus()
             self._handle_pointer_coordinates(event)
-        elif event_type == "mousemove" and self._drag_active:
-            self._handle_pointer_coordinates(event)
-        elif event_type in {"mouseup", "mouseleave"}:
+            return
+
+        if event_type in {"touchmove", "pointermove", "mousemove"}:
+            if self._drag_active or left_pressed:
+                self._handle_pointer_coordinates(event)
+            return
+
+        if event_type in {"touchend", "touchcancel", "pointerup", "mouseup", "pointerleave", "mouseleave"}:
             self._drag_active = False
-        elif event_type == "click":
+            if event_type in {"pointerup", "mouseup"}:
+                self._handle_pointer_coordinates(event)
+            return
+
+        if event_type == "click":
             self._handle_pointer_coordinates(event)
 
     def _handle_key_event(self, event: DOMEvent) -> None:
@@ -631,16 +780,6 @@ class NumberLinkNotebookViewer:
             self._attempt_path_step(dr, dc)
         self._after_action()
 
-    async def _auto_hide_help(self) -> None:
-        """Auto hide the help panel after a delay.
-
-        Wait for a short duration and then collapse the help area if it is still visible.
-        """
-        # Auto-hide the help panel after 4 seconds if still visible
-        await asyncio.sleep(4.0)
-        if self._help_toggle.value:
-            self._help_toggle.value = False
-
     def _change_color(self, delta: int) -> None:
         """Change the selected color by a relative offset and refresh the UI.
 
@@ -658,7 +797,7 @@ class NumberLinkNotebookViewer:
             return
 
         # Observe change may provide an int, str or None
-        new_value: int | str | None = change.get("new")
+        new_value: int | str | bytes | None = change.get("new")
         if new_value is None:
             return
 
@@ -680,7 +819,7 @@ class NumberLinkNotebookViewer:
             return
 
         # Observe change may provide int, str, or None
-        new_val: int | str | None = change.get("new")
+        new_val: int | str | bytes | None = change.get("new")
         if new_val is None:
             return
 
@@ -701,6 +840,10 @@ class NumberLinkNotebookViewer:
 
     def _handle_reset(self) -> None:
         """Reset the environment and viewer state then refresh the UI."""
+        # Stop any active replay
+        if self._replay_state != "idle":
+            self._reset_replay_state(restore=False, refresh=False)
+        # Reset environment and viewer
         self._reset_environment()
         self._after_action()
 
@@ -724,9 +867,14 @@ class NumberLinkNotebookViewer:
 
     # Viewer state helpers
 
-    def _reset_view_state(self) -> None:
-        """Reset viewer local state derived from the environment and clear replay state."""
-        self.sel_color = min(0, self.env.num_colors - 1) if self.env.num_colors > 0 else 0
+    def _reset_view_state(self, *, preserve_replay: bool = False) -> None:
+        """Reset viewer local state derived from the environment and clear replay state.
+
+        :param preserve_replay: When True, do not modify the play/pause toggle or replay UI controls. Useful when
+            preparing a replay so we don't stop playback inadvertently within the same toggle handler.
+        """
+        self._cancel_replay_task()
+        self.sel_color = max(0, self.env.num_colors - 1) if self.env.num_colors > 0 else 0
         self.sel_head = 0
         self.switch_mode = self.env.variant.cell_switching_mode
         if self.switch_mode:
@@ -747,9 +895,17 @@ class NumberLinkNotebookViewer:
         self._replay_solution = None
         self._replay_index = 0
         self._pre_replay_snapshot = None
-        self._play_ctrl.disabled = True
-        self._play_ctrl.value = 0
-        self._replay_info.value = ""
+        self._replay_task = None
+        if not preserve_replay:
+            self._suspend_widget_callbacks = True
+            try:
+                self._replay_play_btn.disabled = True
+                self._replay_play_btn.value = False
+            finally:
+                self._suspend_widget_callbacks = False
+            self._replay_play_btn.description = "▶"
+            self._replay_play_btn.button_style = "success"
+            self._replay_info.value = ""
 
     def _can_generate_new_level(self) -> bool:
         """Return whether the environment can generate new levels."""
@@ -999,7 +1155,7 @@ class NumberLinkNotebookViewer:
         """Update status indicators, widget states and replay controls."""
         mode_label: str = "Cell mode" if self.switch_mode else "Path mode"
         color_label: str = (
-            f"Color {self.sel_color + 1}/{self.env.num_colors}" if self.env.num_colors > 0 else "No colors"
+            f"Color {self.sel_color}/{self.env.num_colors - 1}" if self.env.num_colors > 0 else "No colors"
         )
         focus_label: str
         focus_label = f"Cursor ({self.cursor[0]}, {self.cursor[1]})" if self.switch_mode else f"Head {self.sel_head}"
@@ -1021,7 +1177,7 @@ class NumberLinkNotebookViewer:
         self._suspend_widget_callbacks = True
         try:
             if self.env.num_colors > 0:
-                options: list[tuple[str, int]] = [(f"Color {i + 1}", i) for i in range(self.env.num_colors)]
+                options: list[tuple[str, int]] = [(f"Color {i}", i) for i in range(self.env.num_colors)]
                 self._color_selector.options = options
                 self._color_selector.disabled = False
                 self._color_selector.value = min(self.sel_color, self.env.num_colors - 1)
@@ -1055,12 +1211,18 @@ class NumberLinkNotebookViewer:
             )
 
         # Enable replay UI when a solution is available
+        sol: list[ActType] | None
         try:
             sol = self.env.get_solution()
         except Exception:
             sol = None
         has_solution: bool = bool(sol)
-        self._play_ctrl.disabled = not has_solution
+        if not has_solution and self._replay_state != "idle":
+            self._reset_replay_state(restore=False, refresh=False)
+        self._replay_play_btn.disabled = not has_solution
+        if not has_solution:
+            self._replay_play_btn.description = "▶"
+            self._replay_play_btn.button_style = "success"
         self._replay_step_btn.disabled = not has_solution
         self._replay_stop_btn.disabled = not has_solution
 
@@ -1086,9 +1248,16 @@ class NumberLinkNotebookViewer:
         buffer = io.BytesIO()
         self._Image.fromarray(frame).save(buffer, format="PNG")
         self._image_widget.value = buffer.getvalue()
+
+    def _on_image_value_change(self, change: ObserveChange) -> None:
+        """Update widget properties when image data changes."""
         self._image_widget.format = "png"
-        self._image_widget.width = frame.shape[1]
-        self._image_widget.height = frame.shape[0]
+        # Set widget size based on the last known pixels-per-cell and grid size
+        try:
+            self._image_widget.width = self._pixels_per_cell_w * self.env.W
+            self._image_widget.height = self._pixels_per_cell_h * self.env.H
+        except Exception:
+            pass
 
         # Update replay info if active
         if self._replay_state != "idle" and self._replay_solution is not None:
@@ -1097,16 +1266,9 @@ class NumberLinkNotebookViewer:
         else:
             self._replay_info.value = ""
 
-        try:
-            if self.env.render_mode in {"ansi", "human"} and self.env._render_cfg.print_text_in_human_mode:
-                try:
-                    text: str | None = self.env._render_text()
-                except Exception:
-                    text = None
-                if text is not None:
-                    print(text)
-        except Exception:
-            pass
+        if self.env.render_mode in {"ansi", "human"} and self.env._render_cfg.print_text_in_human_mode:
+            with contextlib.suppress(Exception):
+                print(self.env._render_text())
 
     def _draw_cell_border(
         self, frame: NDArray[np.uint8], row: int, col: int, color: tuple[int, int, int], thickness: int
@@ -1147,12 +1309,30 @@ class NumberLinkNotebookViewer:
             return default
         return int(color[0]), int(color[1]), int(color[2])
 
-    # ------------------- Replay helpers -------------------
+    # Replay helpers
+
+    def _reset_replay_state(self, *, restore: bool, refresh: bool) -> None:
+        """Clear replay bookkeeping and optionally restore the pre replay snapshot."""
+        if restore and self._pre_replay_snapshot is not None:
+            self._restore_state(self._pre_replay_snapshot)
+        self._cancel_replay_task()
+        self._replay_state = "idle"
+        self._replay_solution = None
+        self._replay_index = 0
+        self._pre_replay_snapshot = None
+        self._replay_info.value = ""
+        self._suspend_widget_callbacks = True
+        try:
+            self._replay_play_btn.value = False
+        finally:
+            self._suspend_widget_callbacks = False
+        self._replay_play_btn.description = "▶"
+        self._replay_play_btn.button_style = "success"
+        if refresh:
+            self._after_action()
 
     def _ensure_replay_initialized(self) -> bool:
         """Initialize replay state on demand from the environment solution and return readiness."""
-        if self._replay_solution is not None:
-            return True
         try:
             solution: list[ActType] | None = self.env.get_solution()
         except Exception:
@@ -1160,42 +1340,116 @@ class NumberLinkNotebookViewer:
         if not solution:
             self._replay_info.value = "<span style='color:#bd2c00;'>No solution available for this level.</span>"
             return False
-        # Snapshot current env and viewer state
-        self._pre_replay_snapshot = self._snapshot_state()
-        # Reset to start state
+
+        # Always snapshot current state if not already done
+        if self._pre_replay_snapshot is None:
+            self._pre_replay_snapshot = self._snapshot_state()
+
+        # Always reset to initial state for replay from the beginning
         self.env.reset()
-        self._reset_view_state()
+        self._reset_view_state(preserve_replay=True)
+
+        # Store solution and reset index to start from beginning
         self._replay_solution = solution
         self._replay_index = 0
-        # Configure play control range
-        self._play_ctrl.min = 0
-        self._play_ctrl.max = max(0, len(solution) - 1)
-        self._play_ctrl.step = 1
-        self._play_ctrl.value = 0
+        self._replay_play_btn.description = "▶"
+        self._replay_play_btn.button_style = "success"
+        self._replay_info.value = "<span style='color:#0b5394;'>Replay ready.</span>"
         return True
 
-    def _on_play_value_change(self, change: ObserveChange) -> None:
-        """Advance replay according to the play widget value and update the UI."""
-        # Each increment advances one action
-        if not self._ensure_replay_initialized():
+    def _on_replay_play_toggled(self, change: ObserveChange) -> None:
+        """Handle toggling of the play button to start or pause replay auto-advance."""
+        if self._suspend_widget_callbacks:
             return
-        new_val: int | str | None = change.get("new")
-        try:
-            target: int = int(new_val) if new_val is not None else self._replay_index
-        except Exception:
-            target = self._replay_index
+
+        new_val_raw: int | str | bytes | None = change.get("new")
+        is_playing: bool = bool(new_val_raw)
+
+        if is_playing:
+            if not self._ensure_replay_initialized():
+                self._suspend_widget_callbacks = True
+                try:
+                    self._replay_play_btn.value = False
+                finally:
+                    self._suspend_widget_callbacks = False
+                return
+            self._replay_play_btn.description = "❚❚"
+            self._replay_play_btn.button_style = "warning"
+            self._replay_state = "playing"
+            self._start_replay_task()
+        else:
+            self._replay_play_btn.description = "▶"
+            self._replay_play_btn.button_style = "success"
+            if self._replay_state == "playing":
+                self._replay_state = "paused"
+            self._cancel_replay_task()
+
+    def _start_replay_task(self) -> None:
+        """Start automatic replay using the Play widget for animation."""
         if self._replay_solution is None:
             return
-        while self._replay_index <= target and self._replay_index < len(self._replay_solution):
+        # Configure Play widget range and reset to start
+        self._replay_play_widget.min = 0
+        self._replay_play_widget.max = len(self._replay_solution) - 1
+        self._replay_play_widget.value = 0  # Always start from beginning
+        self._replay_play_widget.interval = self._replay_interval_ms
+        self._replay_play_widget.step = 1
+        # Enable and start playing - the Play widget will automatically animate
+        self._replay_play_widget.disabled = False
+        # Trigger the play, set playing to True (this starts the animation)
+        self._replay_play_widget.playing = True
+
+    def _cancel_replay_task(self) -> None:
+        """Stop the Play widget animation."""
+        self._replay_play_widget.playing = False
+        self._replay_play_widget.disabled = True
+
+    def _on_play_widget_value_change(self, change: ObserveChange) -> None:
+        """Handle Play widget value changes to advance replay step by step."""
+        if self._replay_solution is None or self._suspend_widget_callbacks:
+            return
+
+        new_val_raw: int | str | bytes | None = change.get("new")
+        if new_val_raw is None:
+            return
+
+        try:
+            step_index = int(new_val_raw)
+        except (TypeError, ValueError):
+            return
+
+        total_moves: int = len(self._replay_solution)
+
+        # Apply any pending actions up to the current play widget index.
+        target_index: int = min(step_index, total_moves - 1)
+        applied: bool = False
+        while self._replay_index <= target_index and self._replay_index < total_moves:
             action = int(self._replay_solution[self._replay_index])
             self.env.step(action=action)
             self._replay_index += 1
-        # Auto-stop when finished
-        if self._replay_index >= len(self._replay_solution):
-            self._replay_state = "paused"
-        else:
-            self._replay_state = "playing"
-        self._after_action()
+            applied = True
+
+        if applied:
+            self._after_action()
+            self._replay_info.value = (
+                f"<span style='color:#0b5394;'>Replay step {self._replay_index}/{total_moves}</span>"
+            )
+
+        # Check if replay is complete
+        if step_index >= total_moves - 1:
+            self._replay_info.value = "<span style='color:#1a7f37;'>Replay complete.</span>"
+            self._suspend_widget_callbacks = True
+            try:
+                self._replay_play_btn.value = False
+            finally:
+                self._suspend_widget_callbacks = False
+            self._replay_play_btn.description = "▶"
+            self._replay_play_btn.button_style = "success"
+            self._cancel_replay_task()
+            if self._replay_restore_toggle.value:
+                self._reset_replay_state(restore=True, refresh=True)
+            else:
+                self._replay_state = "paused"
 
     def _replay_step_once(self) -> None:
         """Apply a single action from the solution during replay and refresh the frame."""
@@ -1203,33 +1457,34 @@ class NumberLinkNotebookViewer:
             return
         if self._replay_solution is None:
             return
-        if self._replay_index < len(self._replay_solution):
+        total_moves: int = len(self._replay_solution)
+        if self._replay_index < total_moves:
             action = int(self._replay_solution[self._replay_index])
             self.env.step(action=action)
             self._replay_index += 1
-            self._after_action()
+        if self._replay_index >= total_moves:
+            self._replay_info.value = "<span style='color:#1a7f37;'>Replay complete.</span>"
+            self._reset_replay_state(restore=bool(self._replay_restore_toggle.value), refresh=False)
+        else:
+            self._replay_state = "playing" if self._replay_play_btn.value else "paused"
+            self._replay_info.value = (
+                f"<span style='color:#0b5394;'>Replay step {self._replay_index}/{total_moves}</span>"
+            )
+        self._after_action()
 
     def _replay_stop(self) -> None:
         """Stop replay and optionally restore the pre replay snapshot before refreshing the UI."""
         restore = bool(self._replay_restore_toggle.value)
-        if restore and self._pre_replay_snapshot is not None:
-            self._restore_state(self._pre_replay_snapshot)
-        # Reset replay state
-        self._replay_state = "idle"
-        self._replay_solution = None
-        self._replay_index = 0
-        self._play_ctrl.value = 0
-        self._after_action()
+        self._reset_replay_state(restore=restore, refresh=True)
 
     def _on_replay_speed_change(self, change: ObserveChange) -> None:
         """Update the replay timer interval from the speed slider."""
         try:
-            new_val: int | str | None = change.get("new")
+            new_val: int | str | bytes | None = change.get("new")
             val: int = int(new_val) if new_val is not None else self._replay_interval_ms
         except Exception:
             val = self._replay_interval_ms
         self._replay_interval_ms = val
-        self._play_ctrl.interval = max(10, val)
 
     def _snapshot_state(self) -> Snapshot:
         """Capture a snapshot of environment and viewer state for replay restore and return it."""
