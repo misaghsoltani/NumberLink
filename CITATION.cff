@@ -17,7 +17,7 @@ keywords:
   - Pathfinding
   - Reinforcement Learning
 license: MIT
-version: 0.1.4
+version: 0.1.5
 preferred-citation:
   authors:
     - family-names: Soltani

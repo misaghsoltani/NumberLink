@@ -16,7 +16,7 @@ ci = "pixi run -e dev check && pixi run -e test test-coverage && pixi run -e doc
 
 [package]
 name = "numberlink"
-version = "0.1.4"
+version = "0.1.5"
 
 
 [package.build]
