@@ -435,7 +435,9 @@
             "allowed_elements": [
                 "br",
                 "img",
-                "p"
+                "p",
+                "picture",
+                "source"
             ]
         }
     },

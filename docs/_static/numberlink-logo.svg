@@ -3,7 +3,8 @@
   aria-label="NumberLink logo: grid and path with wordmark">
   <rect width="120" height="120" rx="18" fill="#FFFFFF" />
   <!-- grid (shifted up slightly to make room for wordmark) -->
-  <g stroke="#E6E6E6" stroke-width="1.6">
+
+  <g stroke="#E6E6E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
     <line x1="20" y1="14" x2="20" y2="94" />
     <line x1="40" y1="14" x2="40" y2="94" />
     <line x1="60" y1="14" x2="60" y2="94" />
@@ -34,5 +35,7 @@
   <!-- wordmark (centered below the grid) -->
   <text x="60" y="112" text-anchor="middle"
     font-family="Poppins, Montserrat, 'Segoe UI', Arial, sans-serif" font-size="11"
-    font-weight="700" letter-spacing="0.2"><tspan fill="#0F2D3D">Number</tspan><tspan fill="#00A6A6">Link</tspan></text>
+    font-weight="700" letter-spacing="0.2">
+    <tspan fill="#0F2D3D">Number</tspan><tspan fill="#00A6A6">Link</tspan>
+  </text>
 </svg>

@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1280" height="640" viewBox="0 0 1280 640" xmlns="http://www.w3.org/2000/svg" role="img"
+  aria-label="NumberLink social preview banner - light mode">
+  <defs>
+    <!-- Light background gradient -->
+    <linearGradient id="bg-grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFFFFF" />
+      <stop offset="55%" stop-color="#F3F7FA" />
+      <stop offset="100%" stop-color="#EAF2F7" />
+    </linearGradient>
+
+    <!-- Teal radial glow behind the logo -->
+    <radialGradient id="glow" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#00A6A6" stop-opacity="0.22" />
+      <stop offset="60%" stop-color="#00A6A6" stop-opacity="0.08" />
+      <stop offset="100%" stop-color="#00A6A6" stop-opacity="0" />
+    </radialGradient>
+
+    <!-- Subtle grid pattern (navy at low opacity) -->
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#0F2D3D" stroke-opacity="0.08" stroke-width="1" />
+    </pattern>
+
+    <!-- Soft drop shadow for the logo card (lighter for light mode) -->
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000000" flood-opacity="0.20" />
+    </filter>
+
+    <!-- Gentle noise for texture (very subtle) -->
+    <filter id="noise">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"
+        seed="7" />
+      <feColorMatrix type="saturate" values="0" />
+      <feComponentTransfer>
+        <feFuncA type="table" tableValues="0 0.02" />
+      </feComponentTransfer>
+    </filter>
+
+    <!-- Accent gradients -->
+    <linearGradient id="accent-teal" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#00B3B3" stop-opacity="0.16" />
+      <stop offset="100%" stop-color="#00A6A6" stop-opacity="0.05" />
+    </linearGradient>
+    <linearGradient id="accent-orange" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#FFB547" stop-opacity="0.20" />
+      <stop offset="100%" stop-color="#FFB547" stop-opacity="0.06" />
+    </linearGradient>
+    <!-- Rounded corner clip for banner previews -->
+    <clipPath id="rounded-corners">
+      <!-- Match rounding of the scaled logo card (logo rx=18 scaled by 5 => 90) -->
+      <rect x="0" y="0" width="1280" height="640" rx="90" ry="90" />
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#rounded-corners)">
+    <!-- Background -->
+    <rect width="1280" height="640" fill="url(#bg-grad)" />
+    <ellipse cx="640.0" cy="294.40000000000003" rx="640.0" ry="416.0" fill="url(#glow)" />
+
+    <!-- Accents -->
+    <g opacity="0.95">
+      <path d="M-60,520 C260,420 460,680 840,560 C1040,500 1200,520 1380,680 L1380,800 L-60,800 Z"
+        fill="url(#accent-teal)" />
+      <path d="M1150,-120 C1200,200 980,320 820,420 C700,494 560,520 520,600 L1280,640 L1280,-160 Z"
+        fill="url(#accent-orange)" />
+      <rect x="0" y="0" width="1280" height="640" fill="url(#grid)" opacity="0.55" />
+    </g>
+
+    <!-- Very light edge vignette to frame content -->
+    <g transform="translate(340,20) scale(5.0)" filter="url(#softShadow)">
+      <rect width="120" height="120" rx="18" fill="#FFFFFF" />
+      <!-- grid (shifted up slightly to make room for wordmark) -->
+      <g stroke="#E6E6E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="20" y1="14" x2="20" y2="94" />
+        <line x1="40" y1="14" x2="40" y2="94" />
+        <line x1="60" y1="14" x2="60" y2="94" />
+        <line x1="80" y1="14" x2="80" y2="94" />
+        <line x1="100" y1="14" x2="100" y2="94" />
+        <line x1="20" y1="14" x2="100" y2="14" />
+        <line x1="20" y1="34" x2="100" y2="34" />
+        <line x1="20" y1="54" x2="100" y2="54" />
+        <line x1="20" y1="74" x2="100" y2="74" />
+        <line x1="20" y1="94" x2="100" y2="94" />
+      </g>
+      <!-- path -->
+      <path d="M40 94 L40 54 L80 54 L80 34 L100 34" fill="none" stroke="#00A6A6" stroke-width="8"
+        stroke-linecap="round" stroke-linejoin="round" />
+      <!-- endpoints -->
+      <g fill="#FFB547" stroke="#FFFFFF" stroke-width="1.8">
+        <circle cx="40" cy="94" r="8" />
+        <circle cx="100" cy="34" r="8" />
+      </g>
+      <!-- endpoint numbers -->
+      <text x="40" y="97" text-anchor="middle"
+        font-family="Poppins, Montserrat, 'Segoe UI', Arial, sans-serif" font-size="8"
+        fill="#FFFFFF"
+        font-weight="700">1</text>
+      <text x="100" y="37" text-anchor="middle"
+        font-family="Poppins, Montserrat, 'Segoe UI', Arial, sans-serif" font-size="8"
+        fill="#FFFFFF"
+        font-weight="700">1</text>
+
+      <!-- wordmark (centered below the grid) -->
+      <text x="60" y="112" text-anchor="middle"
+        font-family="Poppins, Montserrat, 'Segoe UI', Arial, sans-serif" font-size="11"
+        font-weight="700" letter-spacing="0.2">
+        <tspan fill="#0F2D3D">Number</tspan><tspan fill="#00A6A6">Link</tspan>
+      </text>
+    </g>
+
+    <!-- Texture -->
+  </g>
+</svg>

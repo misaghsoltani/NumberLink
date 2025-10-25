@@ -3,11 +3,17 @@
 NumberLink Documentation
 =================================
 
-.. figure:: _static/numberlink-logo.svg
-   :alt: NumberLink logo
-   :width: 45%
+.. image:: _static/numberlink-banner-light.svg
+   :alt: NumberLink banner
+   :width: 100%
+   :class: only-light
 
-   NumberLink connects matching endpoints with non overlapping paths on a grid.
+.. image:: _static/numberlink-banner-dark.svg
+   :alt: NumberLink banner
+   :width: 100%
+   :class: only-dark
+
+NumberLink connects matching endpoints with non overlapping paths on a grid.
 
 :mod:`numberlink` provides a `Gymnasium <https://gymnasium.farama.org/>`_ RGB environment, a vectorized batch variant, and a pygame viewer described in :doc:`usage`. This environment was inspired by `Puzzle Baron's NumberLinks <https://numberlinks.puzzlebaron.com>`_.
 
@@ -21,6 +27,11 @@ NumberLink boards follow these invariants:
 - Unless the chosen variant disables the requirement, every cell must belong to a path. Toggle this rule with :attr:`numberlink.config.VariantConfig.must_fill`.
 - Bridge cells yield independent vertical and horizontal lanes governed by :attr:`numberlink.config.VariantConfig.bridges_enabled`.
 - Diagonal moves are allowed only when :attr:`numberlink.config.VariantConfig.allow_diagonal` is set. Cell switching is controlled by :attr:`numberlink.config.VariantConfig.cell_switching_mode`.
+
+.. image:: _static/gifs/interactive.gif
+   :alt: Must fill variant example
+   :width: 160px
+   :class: quickstart-gif
 
 .. image:: _static/gifs/quickstart_must_fill.gif
    :alt: Must fill variant example

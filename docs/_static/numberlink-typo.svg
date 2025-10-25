@@ -2,7 +2,6 @@
   aria-label="NumberLink logo">
   <rect rx="8" width="240" height="64" fill="#0f172a" />
   <g fill="#10b981" font-family="Inter, Arial, sans-serif" font-weight="700" font-size="28">
-    <text x="20" y="40">Number</text>
-    <text x="130" y="40" fill="#60a5fa">Link</text>
+    <text x="20" y="40">Number</text><text x="130" y="40" fill="#60a5fa">Link</text>
   </g>
 </svg>

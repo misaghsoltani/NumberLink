@@ -14,7 +14,11 @@
 <br/>
 
 <p align="center">
-  <img alt="NumberLink Logo" src="https://raw.githubusercontent.com/misaghsoltani/NumberLink/master/docs/_static/numberlink-logo.svg" />
+  <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="docs/_static/numberlink-banner-dark.svg">
+      <source media="(prefers-color-scheme: light)" srcset="docs/_static/numberlink-banner-light.svg">
+      <img alt="Fallback NumberLink Banner - Dark" src="docs/_static/numberlink-banner-dark.svg" style="width:80%;height:auto;display:block;">
+  </picture>
 </p>
 
 <br/>
@@ -44,10 +48,28 @@ NumberLink boards follow these invariants:
 - Citing this project: [Cite this project](#cite-this-work)
 - Contact: [Contact](#contact)
 
-### Demo
+## Demo
 
-| ![Must fill](https://raw.githubusercontent.com/misaghsoltani/NumberLink/master/docs/_static/gifs/quickstart_must_fill.gif) | ![Cell switching](https://raw.githubusercontent.com/misaghsoltani/NumberLink/master/docs/_static/gifs/quickstart_cell_switching.gif) | ![Path mode](https://raw.githubusercontent.com/misaghsoltani/NumberLink/master/docs/_static/gifs/quickstart_path.gif) | ![Bridges and diagonal](https://raw.githubusercontent.com/misaghsoltani/NumberLink/master/docs/_static/gifs/quickstart_bridges_diagonal.gif) |
-| :------------------------------------------------------------------------------------------------------------------------: | :----------------------------------------------------------------------------------------------------------------------------------: | :-------------------------------------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------------------------------------------------------: |
+<!-- markdownlint-disable MD033 -->
+<div align="center">
+  <table>
+    <tr>
+      <th style="text-align:center;">Interactive</th>
+      <th style="text-align:center;">Must fill</th>
+      <th style="text-align:center;">Cell switching</th>
+      <th style="text-align:center;">Path mode</th>
+      <th style="text-align:center;">Bridges and diagonal</th>
+    </tr>
+    <tr>
+      <td style="text-align:center;"><img alt="Interactive" src="https://raw.githubusercontent.com/misaghsoltani/NumberLink/master/docs/_static/gifs/interactive.gif" style="max-width:100%;height:auto;" /></td>
+      <td style="text-align:center;"><img alt="Must fill" src="https://raw.githubusercontent.com/misaghsoltani/NumberLink/master/docs/_static/gifs/quickstart_must_fill.gif" style="max-width:100%;height:auto;" /></td>
+      <td style="text-align:center;"><img alt="Cell switching" src="https://raw.githubusercontent.com/misaghsoltani/NumberLink/master/docs/_static/gifs/quickstart_cell_switching.gif" style="max-width:100%;height:auto;" /></td>
+      <td style="text-align:center;"><img alt="Path mode" src="https://raw.githubusercontent.com/misaghsoltani/NumberLink/master/docs/_static/gifs/quickstart_path.gif" style="max-width:100%;height:auto;" /></td>
+      <td style="text-align:center;"><img alt="Bridges and diagonal" src="https://raw.githubusercontent.com/misaghsoltani/NumberLink/master/docs/_static/gifs/quickstart_bridges_diagonal.gif" style="max-width:100%;height:auto;" /></td>
+    </tr>
+  </table>
+</div>
+<!-- markdownlint-enable MD033 -->
 
 ## Quick start
 
