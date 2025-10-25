@@ -15,9 +15,9 @@
 
 <p align="center">
   <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="docs/_static/numberlink-banner-dark.svg">
-      <source media="(prefers-color-scheme: light)" srcset="docs/_static/numberlink-banner-light.svg">
-      <img alt="Fallback NumberLink Banner - Dark" src="docs/_static/numberlink-banner-dark.svg" style="width:80%;height:auto;display:block;">
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/misaghsoltani/NumberLink/master/docs/_static/numberlink-banner-dark.svg">
+      <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/misaghsoltani/NumberLink/master/docs/_static/numberlink-banner-light.svg">
+      <img alt="Fallback NumberLink Banner - Dark" src="https://raw.githubusercontent.com/misaghsoltani/NumberLink/master/docs/_static/numberlink-banner-dark.svg" style="width:80%;height:auto;display:block;">
   </picture>
 </p>
 
