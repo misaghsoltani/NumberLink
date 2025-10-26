@@ -227,7 +227,7 @@ If you use NumberLink in your research, please cite:
 @misc{numberlinkenv2025soltani,
   author = {Soltani, Misagh},
   title  = {NumberLink Puzzle},
-  url    = {https://misaghsoltani.github.io/NumberLink},
+  url    = {https://github.com/misaghsoltani/NumberLink},
   year   = {2025}
 }
 ```
