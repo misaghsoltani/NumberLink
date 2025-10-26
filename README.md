@@ -9,6 +9,7 @@
 ![Static Badge](https://img.shields.io/badge/statically%20typed-mypy-039dfc)
 [![Build & Publish](https://github.com/misaghsoltani/NumberLink/actions/workflows/publish_to_pypi.yml/badge.svg)](https://github.com/misaghsoltani/NumberLink/actions/workflows/publish_to_pypi.yml)
 [![Deploy Documentation](https://github.com/misaghsoltani/NumberLink/actions/workflows/docs.yml/badge.svg)](https://github.com/misaghsoltani/NumberLink/actions/workflows/docs.yml)
+[![Documentation Badge](https://img.shields.io/badge/Documentation-ffb546?logo=readthedocs&logoColor=%23ffb546&color=%2305a5a6&link=https%3A%2F%2Fmisaghsoltani.github.io%2FNumberLink%2F)](https://misaghsoltani.github.io/NumberLink/)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/misaghsoltani/NumberLink/blob/main/notebooks/numberlink_interactive.ipynb)
 
 <br/>
