@@ -22,7 +22,7 @@ from .registration import register_numberlink_v0
 from .vector_env import NumberLinkRGBVectorEnv
 from .viewer import NumberLinkViewer
 
-__version__ = "0.1.5"
+__version__ = "0.1.6"
 __author__ = "Misagh Soltani"
 
 register_numberlink_v0()
