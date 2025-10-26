@@ -25,7 +25,12 @@ project: str = "NumberLink"
 release: str = _pkg_version(dist_name)  # full version, e.g. "1.2.3"
 version: str = release  # or: ".".join(release.split(".")[:2])
 meta: PackageMetadata = _pkg_metadata(dist_name)
-author: str = meta.get("Author", "") or meta.get("Author-email", "") or "NumberLink authors"
+raw_author: str = meta.get("Author", "") or ""
+author: str = (
+    raw_author
+    if raw_author
+    else re.sub(r"\s*[<(].*[)>]", "", meta.get("Author-email", "") or "").strip() or "NumberLink authors"
+)
 
 copyright: str = f"{time.localtime().tm_year} {author}"
 description: str = "NumberLink Puzzle Environment for Gymnasium"
