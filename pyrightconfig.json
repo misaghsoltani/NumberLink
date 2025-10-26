@@ -33,8 +33,6 @@
   //   "stubPath": "numberlink/stubs",
   "reportUnnecessaryTypeIgnoreComment": "warning",
   "reportUnnecessaryCast": "warning",
-  "reportUnnecessaryTypeAssertion": "warning",
-  "reportUnnecessaryCondition": "warning",
   "reportUnnecessaryComparison": "warning",
   "reportUnnecessaryContains": "warning",
   "reportUnnecessaryIsInstance": "warning",
