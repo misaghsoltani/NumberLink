@@ -2,6 +2,7 @@
 
 [![image](https://img.shields.io/pypi/v/numberlink.svg)](https://pypi.python.org/pypi/numberlink)
 [![image](https://img.shields.io/pypi/l/numberlink.svg)](https://github.com/misaghsoltani/NumberLink/blob/main/LICENSE)
+[![DOI](https://zenodo.org/badge/1080940134.svg)](https://doi.org/10.5281/zenodo.17450169)
 [![image](https://img.shields.io/pypi/pyversions/numberlink.svg)](https://pypi.python.org/pypi/numberlink)
 [![Pixi Badge](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/prefix-dev/pixi/main/assets/badge/v0.json&label=package%20manager)](https://pixi.sh)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
@@ -223,13 +224,28 @@ MIT License - see [LICENSE](https://github.com/misaghsoltani/NumberLink/blob/mai
 
 If you use NumberLink in your research, please cite:
 
+<!-- @software{soltani_2025_17450170,
+  author       = {Soltani, Misagh},
+  title        = {NumberLink Puzzle},
+  month        = oct,
+  year         = 2025,
+  publisher    = {Zenodo},
+  version      = {v0.1.6},
+  doi          = {10.5281/zenodo.17450170},
+  url          = {https://doi.org/10.5281/zenodo.17450170},
+} -->
+
 <!-- CITATION-BIBTEX:START -->
 ```bibtex
-@misc{numberlinkenv2025soltani,
-  author = {Soltani, Misagh},
-  title  = {NumberLink Puzzle},
-  url    = {https://github.com/misaghsoltani/NumberLink},
-  year   = {2025}
+@software{soltani_2025_17450170,
+  author       = {Soltani, Misagh},
+  title        = {NumberLink Puzzle},
+  month        = oct,
+  year         = 2025,
+  publisher    = {Zenodo},
+  version      = {v0.1.6},
+  doi          = {10.5281/zenodo.17450170},
+  url          = {https://doi.org/10.5281/zenodo.17450170},
 }
 ```
 <!-- CITATION-BIBTEX:END -->
