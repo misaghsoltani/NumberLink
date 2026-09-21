@@ -7,6 +7,7 @@ so simply importing the package is sufficient to register the environment.
 
 from __future__ import annotations
 
+import threading
 from typing import TYPE_CHECKING
 
 from gymnasium.envs.registration import register, registry
@@ -23,12 +24,17 @@ if TYPE_CHECKING:
     from .types import Coord, RenderMode, RGBInt
 
 
+_REGISTRATION_LOCK = threading.Lock()
+"""Serializes the registry lookup and the registration so concurrent callers register an id exactly once."""
+
+
 def register_numberlink_v0(env_id: str = "NumberLinkRGB-v0") -> None:
     """Register the environment id with Gymnasium's registry.
 
     This function registers the NumberLink environment so it can be instantiated using ``gymnasium.make``.
-    The registration is idempotent and safe to call multiple times. If the environment has already been
-    registered, the function returns immediately without raising an error or duplicating the registration.
+    The registration is idempotent and safe to call multiple times, including concurrently from several threads.
+    If the environment has already been registered, the function returns immediately without raising an error or
+    duplicating the registration.
 
     The function registers both a standard environment entry point and a vectorized entry point that can
     be used with ``gymnasium.make_vec`` for parallel environment execution.
@@ -72,21 +78,24 @@ def register_numberlink_v0(env_id: str = "NumberLinkRGB-v0") -> None:
     if not env_id:
         raise ValueError(f"env_id must be a non-empty string, got: {env_id!r}")
 
-    # Check if already registered by querying the registry
-    existing_spec: EnvSpec | None = registry.get(env_id)
-    if existing_spec is not None:
-        return
+    # The lookup and the registration are held under one lock so threads on a free-threaded interpreter cannot both
+    # observe an unregistered id and then register it twice.
+    with _REGISTRATION_LOCK:
+        # Check if already registered by querying the registry
+        existing_spec: EnvSpec | None = registry.get(env_id)
+        if existing_spec is not None:
+            return
 
-    register(
-        id=env_id,
-        entry_point="numberlink:NumberLinkRGBEnv",
-        vector_entry_point="numberlink:NumberLinkRGBVectorEnv",
-        kwargs={},
-        max_episode_steps=None,
-        disable_env_checker=False,
-        order_enforce=True,
-        nondeterministic=False,
-    )
+        register(
+            id=env_id,
+            entry_point="numberlink:NumberLinkRGBEnv",
+            vector_entry_point="numberlink:NumberLinkRGBVectorEnv",
+            kwargs={},
+            max_episode_steps=None,
+            disable_env_checker=False,
+            order_enforce=True,
+            nondeterministic=False,
+        )
 
 
 def env_creator(

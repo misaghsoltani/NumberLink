@@ -22,22 +22,22 @@ from .registration import register_numberlink_v0
 from .vector_env import NumberLinkRGBVectorEnv
 from .viewer import NumberLinkViewer
 
-__version__ = "0.1.6"
+__version__ = "0.1.7"
 __author__ = "Misagh Soltani"
 
 register_numberlink_v0()
 
 __all__: list[str] = [
-    "__version__",
-    "__author__",
-    "NumberLinkRGBEnv",
-    "register_numberlink_v0",
-    "GeneratorConfig",
-    "VariantConfig",
-    "RewardConfig",
-    "RenderConfig",
     "LEVELS",
-    "NumberLinkViewer",
+    "GeneratorConfig",
     "NumberLinkNotebookViewer",
+    "NumberLinkRGBEnv",
     "NumberLinkRGBVectorEnv",
+    "NumberLinkViewer",
+    "RenderConfig",
+    "RewardConfig",
+    "VariantConfig",
+    "__author__",
+    "__version__",
+    "register_numberlink_v0",
 ]

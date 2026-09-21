@@ -16,6 +16,7 @@ for environment details used by the viewer and board commands.
 from __future__ import annotations
 
 from argparse import ArgumentParser, BooleanOptionalAction
+from collections.abc import Sequence
 import json
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -28,7 +29,9 @@ from .viewer import NumberLinkViewer
 
 if TYPE_CHECKING:
     from argparse import Namespace, _SubParsersAction
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable
+
+    from numpy import int_ as np_int
 
     from .env import RenderMode
     from .levels import Level
@@ -288,10 +291,11 @@ def load_bridges(bridges_path: Path | None) -> Sequence[Coord] | None:
     """
     if bridges_path is None:
         return None
-    data: list[Coord] = json.loads(bridges_path.read_text(encoding="utf-8"))
+    # The parsed payload is untrusted, so the element type admits exactly the shapes the checks below reject.
+    data: Sequence[Sequence[int] | str | None] = json.loads(bridges_path.read_text(encoding="utf-8"))
     bridges: list[Coord] = []
     for entry in data:
-        if not isinstance(entry, Sequence) or isinstance(entry, (str, bytes)) or len(entry) != 2:  # pyright: ignore[reportUnnecessaryIsInstance]
+        if not isinstance(entry, Sequence) or isinstance(entry, (str, bytes)) or len(entry) != 2:
             raise ValueError("bridge entries must be two-element sequences")
         row_val = int(entry[0])
         col_val = int(entry[1])
@@ -515,14 +519,15 @@ def handle_viewer(args: Namespace) -> int:
 
     When the ``--apply-solution`` flag is provided and a stored solution is available the solution is applied by issuing
     calls to :meth:`numberlink.env.NumberLinkRGBEnv.step`. When ``--render-mode`` is ``ansi`` the textual representation
-    from :meth:`numberlink.env.NumberLinkRGBEnv._render_text` is printed. For other render modes a
+    from :meth:`numberlink.env.NumberLinkRGBEnv.render_text` is printed. For other render modes a
     :class:`numberlink.viewer.NumberLinkViewer` is constructed and its :meth:`numberlink.viewer.NumberLinkViewer.loop`
-    method is invoked.
+    method is invoked. When the optional pygame dependency is missing the installation hint carried by the resulting
+    :class:`RuntimeError` is printed and ``1`` is returned.
 
     The environment is always closed by calling :meth:`numberlink.env.NumberLinkRGBEnv.close` in a ``finally`` block.
 
     :param args: Parsed arguments from :func:`build_parser`.
-    :return: Process exit code. ``0`` indicates success.
+    :return: Process exit code. ``0`` indicates success and ``1`` indicates the viewer could not be opened.
     :rtype: int
     """
     grid: Sequence[str] | None = None
@@ -561,7 +566,7 @@ def handle_viewer(args: Namespace) -> int:
     try:
         _, info = env.reset(seed=args.seed)
         # Status line
-        connected_count: int = env._closed.sum()
+        connected_count: np_int = env.closed.sum()
         status: str = (
             f"Viewer: {env.W}x{env.H} | colors={env.num_colors} | "
             f"connected={connected_count}/{env.num_colors} | steps={info.get('steps', 0)}"
@@ -575,12 +580,19 @@ def handle_viewer(args: Namespace) -> int:
             else:
                 print("No stored solution available for this configuration.")
         if args.render_mode == "ansi":
-            print(env._render_text())
+            print(env.render_text())
         else:
-            viewer: NumberLinkViewer = NumberLinkViewer(env, cell_size=args.cell_size)
+            try:
+                viewer: NumberLinkViewer = NumberLinkViewer(env, cell_size=args.cell_size)
+            except RuntimeError as exc:
+                print(exc)
+                return 1
+
             viewer.loop()
+
     finally:
         env.close()
+
     return 0
 
 
@@ -635,8 +647,8 @@ def handle_board(args: Namespace) -> int:
     )
     try:
         _, info = env.reset(seed=args.seed)
-        print(env._render_text())
-        connected_count: int = env._closed.sum()
+        print(env.render_text())
+        connected_count: np_int = env.closed.sum()
         status: str = (
             f"Status: {env.W}x{env.H} | colors={env.num_colors} | "
             f"connected={connected_count}/{env.num_colors} | steps={info.get('steps', 0)}"
@@ -651,7 +663,7 @@ def handle_board(args: Namespace) -> int:
                     env.step(action)
                 print()
                 print("After applying solution:")
-                print(env._render_text())
+                print(env.render_text())
     finally:
         env.close()
     return 0

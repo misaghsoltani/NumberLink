@@ -1,14 +1,19 @@
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-import numpy as np
 from PIL import Image
 
 from numberlink import GeneratorConfig, RenderConfig, VariantConfig
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
-def save_gif(frames: list[np.ndarray], path: Path, fps: int = 10) -> None:
+    import numpy as np
+    from numpy.typing import NDArray
+
+
+def save_gif(frames: list[NDArray[np.uint8]], path: Path, fps: int = 10) -> None:
     """Save a list of RGB frames into a GIF at the provided path."""
     if not frames:
         return

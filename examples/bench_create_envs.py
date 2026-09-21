@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Benchmark environment creation time for NumberLink single vs vector envs.
 
 Compares creating a single `NumberLinkRGB-v0` environment vs a `NumberLinkRGBVectorEnv`.
@@ -87,7 +88,7 @@ def bench_one_case(
         print(f"| {i:9d} | {single_t:20.6f} | {vector_t:21.6f} |", flush=True)
 
     print("+-----------+----------------------+-----------------------+", flush=True)
-    print("", flush=True)
+    print(flush=True)
 
     def summarize(arr: Iterable[float]) -> str:
         a: list[float] = list(arr)
@@ -106,7 +107,7 @@ def bench_one_case(
     print(f"| Single env     | {summary_single:45s} |", flush=True)
     print(f"| Vector env     | {summary_vector:45s} |", flush=True)
     print("+----------------+-----------------------------------------------+", flush=True)
-    print("", flush=True)
+    print(flush=True)
 
 
 def main() -> None:

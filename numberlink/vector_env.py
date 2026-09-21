@@ -18,7 +18,6 @@ from gymnasium import spaces
 from gymnasium.vector import AutoresetMode, VectorEnv
 from gymnasium.vector.utils import batch_space
 import numpy as np
-from numpy.typing import NDArray
 
 from .level_setup import build_level_template
 from .number_render import build_endpoint_labels, render_bitmap_text_centered
@@ -29,14 +28,15 @@ if TYPE_CHECKING:
     from typing import Any, TypeAlias
 
     from gymnasium.core import RenderFrame
+    from numpy.typing import NDArray
 
     from .config import GeneratorConfig, RenderConfig, RewardConfig, VariantConfig
     from .level_setup import LevelTemplate
     from .types import ActType, Coord, RenderMode, RGBInt
 
-InfoValue: TypeAlias = NDArray[np.uint8] | NDArray[np.unsignedinteger] | NDArray[np.bool_] | list[str | None]
-InfoDict: TypeAlias = dict[str, InfoValue]
 
+InfoValue: TypeAlias = "NDArray[np.uint8] | NDArray[np.unsignedinteger] | NDArray[np.bool_] | list[str | None]"
+InfoDict: TypeAlias = dict[str, InfoValue]
 
 LANE_NORMAL: np.uint8 = np.uint8(0)
 LANE_VERTICAL: np.uint8 = np.uint8(1)
@@ -44,7 +44,16 @@ LANE_HORIZONTAL: np.uint8 = np.uint8(2)
 LANE_BOTH: np.uint8 = np.uint8(3)
 
 
-class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.float32 | np.bool_]]):
+def _build_metadata() -> dict[str, list[str] | AutoresetMode]:
+    """Build metadata for the vector-environment API.
+
+    Returns:
+        The supported render mode and autoreset mode.
+    """
+    return {"render_modes": ["rgb_array"], "autoreset_mode": AutoresetMode.NEXT_STEP}
+
+
+class NumberLinkRGBVectorEnv(VectorEnv["ObsType", "NDArray[np.integer]", "NDArray[np.float32 | np.bool_]"]):
     """Vectorized NumPy environment for NumberLink puzzles.
 
     Run multiple NumberLink instances in parallel and present batched observations and actions compatible with
@@ -68,10 +77,7 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
     :vartype max_steps: int
     """
 
-    metadata: dict[str, list[str] | AutoresetMode] = {
-        "render_modes": ["rgb_array"],
-        "autoreset_mode": AutoresetMode.NEXT_STEP,
-    }
+    metadata: dict[str, list[str] | AutoresetMode] = _build_metadata()
 
     def __init__(
         self,
@@ -143,7 +149,7 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
         )
 
         single_observation_space: spaces.Box
-        single_action_space: spaces.Discrete
+        single_action_space: spaces.Discrete[np.int64]
         single_observation_space, single_action_space = self._load_template(template)
 
         super().__init__()
@@ -164,7 +170,7 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
             return replace(generator, mode="random_walk")
         return generator
 
-    def _load_template(self, template: LevelTemplate) -> tuple[spaces.Box, spaces.Discrete]:
+    def _load_template(self, template: LevelTemplate) -> tuple[spaces.Box, spaces.Discrete[np.int64]]:
         """Load a :class:`numberlink.level_setup.LevelTemplate` and initialize derived state."""
         self._template: LevelTemplate = template
         self.variant: VariantConfig = template.variant
@@ -234,7 +240,7 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
         single_observation_space: spaces.Box = spaces.Box(
             low=0, high=255, shape=(obs_height, obs_width, 3), dtype=np.uint8
         )
-        single_action_space: spaces.Discrete = spaces.Discrete(
+        single_action_space: spaces.Discrete[np.int64] = spaces.Discrete(
             self._cell_action_size if self.variant.cell_switching_mode else self._action_size
         )
 
@@ -371,12 +377,16 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
             for color_idx, path in enumerate(self._solution_coords):
                 if len(path) <= 2:
                     continue
+                colors_plus_clear: int = self._num_colors + 1
                 for row, col in path[1:-1]:
-                    try:
-                        actions.append(self.encode_cell_switching_action(row, col, color_idx + 1))
-                    except ValueError:
+                    color_value: int = color_idx + 1
+                    valid_action: bool = (
+                        0 <= row < self._height and 0 <= col < self._width and 0 <= color_value < colors_plus_clear
+                    )
+                    if not valid_action:
                         continue
-            return actions if actions else None
+                    actions.append(self.encode_cell_switching_action(row, col, color_value))
+            return actions or None
 
         actions = []
         for color_idx, path in enumerate(self._solution_coords):
@@ -401,7 +411,7 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
                 action_idx: int = color_idx * self._actions_per_color + head_idx * self._num_dirs + dir_idx
                 actions.append(action_idx)
 
-        return actions if actions else None
+        return actions or None
 
     def encode_cell_switching_action(self, row: int, col: int, color_value: int) -> int:
         """Encode a cell assignment into the flat action index used in cell switching mode."""
@@ -441,7 +451,7 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
         )
 
         single_observation_space: spaces.Box
-        single_action_space: spaces.Discrete
+        single_action_space: spaces.Discrete[np.int64]
         single_observation_space, single_action_space = self._load_template(template)
         self.single_observation_space = single_observation_space
         self.single_action_space = single_action_space
@@ -540,7 +550,7 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
             self._build_info(action_mask=action_mask, solved=solved, deadlocked=deadlocked),
         )
 
-    def render(self) -> tuple[RenderFrame, ...] | None:  # pyright: ignore[reportInvalidTypeVarUse]
+    def render(self) -> tuple[RenderFrame, ...] | None:
         """Return rendered RGB frames for all environments as a tuple.
 
         Each frame is an array of shape ``(height, width, 3)`` with type ``uint8``. The visual rules for endpoints and
@@ -561,7 +571,6 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
         :param kwargs: Additional keyword arguments accepted for API compatibility.
         :type kwargs: dict[str, Any]
         """
-        pass
 
     # Reset helpers
 
@@ -1152,7 +1161,7 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
             filled: NDArray[np.bool_] = self._all_filled()
             solved &= filled
 
-        dirs: NDArray[np.intp] = self._dirs
+        dirs: NDArray[np.signedinteger] = self._dirs
         bridge_mask_global: NDArray[np.bool_] = self._bridges_mask
         for env in range(self._num_envs):
             if not solved[env]:
@@ -1210,20 +1219,20 @@ class NumberLinkRGBVectorEnv(VectorEnv[ObsType, NDArray[np.integer], NDArray[np.
                 for coord in coords:
                     r = int(coord[0])
                     c = int(coord[1])
-                    neighbour_count: int = 0
+                    neighbor_count: int = 0
                     for dr, dc in dirs:
                         nr = r + int(dr)
                         nc = c + int(dc)
                         if not (0 <= nr < self._height and 0 <= nc < self._width):
                             continue
                         if color_mask[nr, nc]:
-                            neighbour_count += 1
+                            neighbor_count += 1
 
                     if (r == ep0_r and c == ep0_c) or (r == ep1_r and c == ep1_c):
-                        if neighbour_count != 1:
+                        if neighbor_count != 1:
                             solved[env] = False
                             break
-                    elif neighbour_count != 2:
+                    elif neighbor_count != 2:
                         solved[env] = False
                         break
 

@@ -18,9 +18,26 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
-    from importlib.resources.abc import Traversable
+    from typing import Protocol
 
     from .types import Coord
+
+    class ResourceFile(Protocol):
+        """Package resource exposing text content."""
+
+        def read_text(self, encoding: str | None = None) -> str:
+            """Read the resource as text.
+
+            Args:
+                encoding: Optional text encoding.
+
+            Returns:
+                The decoded resource text.
+            """
+            ...
+
+
+_PACKAGE_NAME: str = __package__ or "numberlink"
 
 
 @dataclass(slots=True)
@@ -46,7 +63,7 @@ class Level:
     solution: list[list[Coord]] | None = None
 
 
-def _read_text_lines(res_file: Traversable) -> list[str]:
+def _read_text_lines(res_file: ResourceFile) -> list[str]:
     """Read non-empty, stripped lines from a package resource file."""
     text: str = res_file.read_text(encoding="utf-8")
     rows: list[str] = []
@@ -57,7 +74,7 @@ def _read_text_lines(res_file: Traversable) -> list[str]:
     return rows
 
 
-def _load_solution_json(res_file: Traversable) -> list[list[Coord]] | None:
+def _load_solution_json(res_file: ResourceFile) -> list[list[Coord]] | None:
     """Attempt to load a JSON solution adjacent to a grid file.
 
     Expected JSON format: list of paths, where each path is a list of ``[row, col]`` pairs.
@@ -70,9 +87,7 @@ def _load_solution_json(res_file: Traversable) -> list[list[Coord]] | None:
     data: list[list[list[int]]] = json.loads(text)
     sol: list[list[Coord]] = []
     for path_list in data:
-        coords: list[Coord] = []
-        for entry in path_list:
-            coords.append((int(entry[0]), int(entry[1])))
+        coords: list[Coord] = [(int(entry[0]), int(entry[1])) for entry in path_list]
         sol.append(coords)
     return sol
 
@@ -82,11 +97,11 @@ def _level_from_asset(txt_name: str) -> Level:
 
     Also attempts to load an optional ``.sol.json`` with the same stem for solution coordinates.
     """
-    base: Traversable = importlib_resources.files(__package__) / "assets" / "levels"
-    txt_res: Traversable = base / txt_name
+    base = importlib_resources.files(_PACKAGE_NAME) / "assets" / "levels"
+    txt_res = base / txt_name
     grid_rows: list[str] = _read_text_lines(txt_res)
-    stem: str = txt_name[:-4] if txt_name.endswith(".txt") else txt_name
-    sol_res: Traversable = base / f"{stem}.sol.json"
+    stem: str = txt_name.removesuffix(".txt")
+    sol_res = base / f"{stem}.sol.json"
     solution: list[list[Coord]] | None = _load_solution_json(sol_res)
     return Level(grid=grid_rows, bridges=None, solution=solution)
 
@@ -121,7 +136,7 @@ def _scan_asset_levels(limit: int = 20) -> dict[str, Level]:
 
     Level ids are derived from the filename stem with a ``file_`` prefix, for example ``file_5x5_01``.
     """
-    base: Traversable = importlib_resources.files(__package__) / "assets" / "levels"
+    base = importlib_resources.files(_PACKAGE_NAME) / "assets" / "levels"
     levels: dict[str, Level] = {}
     names: list[str] = []
     try:
@@ -133,13 +148,16 @@ def _scan_asset_levels(limit: int = 20) -> dict[str, Level]:
         names = []
     names.sort()
     for name in names[:limit]:
-        stem: str = name[:-4] if name.endswith(".txt") else name
+        stem: str = name.removesuffix(".txt")
         level_id: str = f"file_{stem}"
+        level: Level | None = None
         try:
-            levels[level_id] = _level_from_asset(name)
+            level = _level_from_asset(name)
         except Exception:
             # Skip malformed assets
-            continue
+            level = None
+        if level is not None:
+            levels[level_id] = level
     return levels
 
 

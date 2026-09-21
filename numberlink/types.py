@@ -6,10 +6,12 @@ smallest appropriate :mod:`numpy` integer dtype for a numeric range.
 
 from __future__ import annotations
 
-from typing import Literal, TypeAlias, TypedDict
+from typing import TYPE_CHECKING, Literal, TypeAlias, TypedDict
 
 import numpy as np
-from numpy.typing import NDArray
+
+if TYPE_CHECKING:
+    from numpy.typing import NDArray
 
 RenderMode: TypeAlias = Literal["rgb_array", "ansi", "human"]
 """Rendering mode for a gym environment observation.
@@ -48,7 +50,7 @@ ActType: TypeAlias = np.integer | int
 May be a :class:`numpy.integer` instance or a built in ``int``.
 """
 
-ObsType: TypeAlias = NDArray[np.uint8]
+ObsType: TypeAlias = "NDArray[np.uint8]"
 """Observation array type returned by :meth:`numberlink.env.NumberLinkRGBEnv.render`.
 
 The array has dtype ``numpy.uint8`` and represents an RGB image.
@@ -123,14 +125,14 @@ def select_unsigned_dtype(max_value: int) -> type[np.unsignedinteger]:
 
 
 __all__: list[str] = [
-    "RenderMode",
+    "ActType",
+    "CellLane",
     "Coord",
     "Lane",
-    "CellLane",
-    "RGBInt",
-    "ActType",
     "ObsType",
+    "RGBInt",
+    "RenderMode",
+    "Snapshot",
     "select_signed_dtype",
     "select_unsigned_dtype",
-    "Snapshot",
 ]

@@ -37,6 +37,12 @@ Option A - Install with `uv <https://docs.astral.sh/uv/>`_ (Recommended If Using
 
       uv pip install numberlink
 
+   To enable the interactive pygame viewer and the ``human`` render mode:
+
+   .. code-block:: bash
+
+      uv pip install "numberlink[human]"
+
    To enable the notebook viewer:
 
    .. code-block:: bash
@@ -72,6 +78,12 @@ Option B - Install with `pip <https://pip.pypa.io/en/stable/>`_
       pip install numberlink
 
    See: `pip install command <https://pip.pypa.io/en/stable/cli/pip_install/>`_.
+
+   Install the optional pygame dependency when using the interactive viewer or the ``human`` render mode:
+
+   .. code-block:: bash
+
+      pip install "numberlink[human]"
 
    Install the optional notebook dependencies when working in Jupyter or Google Colab:
 
@@ -121,18 +133,33 @@ Pixi environments are defined in the ``[environments]`` section of ``pixi.toml``
 +----------+----------------------------------------------------+
 | notebook | Optional notebook extras (ipywidgets, ipyevents)   |
 +----------+----------------------------------------------------+
+| human    | Optional pygame viewer dependency (pygame-ce)      |
++----------+----------------------------------------------------+
 | dev      | Development tools: ruff, mypy, pyright, shellcheck |
 +----------+----------------------------------------------------+
 | build    | Build tools (hatch)                                |
 +----------+----------------------------------------------------+
 | all      | Complete development environment (dev, build)      |
 +----------+----------------------------------------------------+
-| glibc217 | All features with glibc 2.17 compatibility         |
-+----------+----------------------------------------------------+
 | doc      | Documentation build tools (Sphinx and helpers)     |
 +----------+----------------------------------------------------+
 | test     | Testing tools: pytest, pytest-cov, nose2, pillow   |
 +----------+----------------------------------------------------+
+| py314ft  | Free-threaded interpreter, no pygame (see below)   |
++----------+----------------------------------------------------+
+
+Each environment is solved for every entry in ``[workspace] platforms``, which covers ``linux-64``,
+``linux-aarch64``, ``osx-64``, ``osx-arm64``, and ``win-64``, plus the ``linux-64-glibc228`` and
+``linux-aarch64-glibc228`` variants. Those variants pin the oldest glibc the required wheels support, because
+``numpy`` publishes manylinux_2_27 and newer wheels while ``pillow`` and ``pyzmq`` publish manylinux_2_28 wheels.
+
+The ``py314ft`` environments (``py314ft``, ``py314ft-dev``, ``py314ft-test``, ``py314ft-build``, ``py314ft-doc``,
+``py314ft-notebook``) use a free-threaded interpreter. They leave ``pygame-ce`` out because it publishes no
+free-threaded wheels, so the interactive viewer is unavailable there while the environment, the vectorized
+environment, and the notebook viewer all work. Everything in :mod:`numberlink` is pure Python and keeps no shared
+mutable state, so environment instances can be driven from separate threads. See ``tests/test_free_threading.py``
+(`test_free_threading.py on GitHub <https://github.com/misaghsoltani/NumberLink/blob/main/tests/test_free_threading.py>`_)
+for the concurrency coverage.
 
 **Activate an environment**:
 
@@ -301,7 +328,10 @@ For CLI:
 
    numberlink-cli viewer
 
+The ``viewer`` subcommand needs the ``human`` extra. Without it the command reports the missing module and the
+installation hint.
+
 Dependencies
 ------------
 
-**Core Python dependencies** (see ``pixi.toml`` (`pixi.toml on GitHub <https://github.com/misaghsoltani/NumberLink/blob/main/pixi.toml>`_) or ``pyproject.toml`` (`pyproject.toml on GitHub <https://github.com/misaghsoltani/NumberLink/blob/main/pyproject.toml>`_)): ``gymnasium``, ``numpy``, ``pygame``.
+**Core Python dependencies** (see ``pixi.toml`` (`pixi.toml on GitHub <https://github.com/misaghsoltani/NumberLink/blob/main/pixi.toml>`_) or ``pyproject.toml`` (`pyproject.toml on GitHub <https://github.com/misaghsoltani/NumberLink/blob/main/pyproject.toml>`_)): ``gymnasium``, ``numpy``. The ``pygame`` dependency ships with the ``human`` extra, and the notebook widgets ship with the ``notebook`` extra.

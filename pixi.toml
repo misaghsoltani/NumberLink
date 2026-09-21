@@ -1,5 +1,15 @@
 [workspace]
-platforms = ["linux-64", "linux-aarch64", "osx-arm64", "osx-64", "win-64"]
+platforms = [
+  "linux-64",
+  "linux-aarch64",
+  "osx-arm64",
+  "osx-64",
+  "win-64",
+  # The oldest glibc the required wheels support: numpy is manylinux_2_27 and newer, pillow and pyzmq are
+  # manylinux_2_28. A lower floor leaves the lock permanently out of date because no wheel can satisfy it.
+  { name = "linux-64-glibc228", platform = "linux-64", glibc = "2.28" },
+  { name = "linux-aarch64-glibc228", platform = "linux-aarch64", glibc = "2.28" },
+]
 name = "numberlink"
 description = "NumberLink puzzle environment for Gymnasium"
 readme = "README.md"
@@ -16,7 +26,7 @@ ci = "pixi run -e dev check && pixi run -e test test-coverage && pixi run -e doc
 
 [package]
 name = "numberlink"
-version = "0.1.6"
+version = "0.1.7"
 
 
 [package.build]
@@ -35,30 +45,58 @@ hatchling = ">=1.27.0,<2"
 uv = "*"
 
 [package.build-dependencies]
-python = ">=3.10,<3.15"
+python = ">=3.10"
 
 [environments]
 default = { solve-group = "default" }
 dev = { features = [
   "dev",
+  "human",
   "notebook",
   "test",
   "doc",
   "build",
 ], solve-group = "default" }
 doc = { features = ["doc"] }
-test = { features = ["test"], solve-group = "default, doc" }
+test = { features = [
+  "test",
+  "human",
+  "notebook",
+], solve-group = "default, doc" }
 build = { features = ["build", "notebook"], solve-group = "default" }
-all = { features = ["dev", "build", "test", "doc"], solve-group = "default" }
-notebook = { features = ["notebook"], solve-group = "default" }
-glibc217 = { features = [
-  "glibc217",
+human = { features = ["human"], solve-group = "default" }
+all = { features = [
   "dev",
   "build",
   "test",
   "doc",
+  "human",
   "notebook",
-] } #, solve-group = "all" }
+], solve-group = "default" }
+notebook = { features = ["notebook"], solve-group = "default" }
+py314ft = { features = [
+  "py314ft",
+], no-default-feature = true, solve-group = "py314ft" }
+py314ft-dev = { features = [
+  "py314ft",
+  "py314ft-dev",
+], no-default-feature = true, solve-group = "py314ft" }
+py314ft-test = { features = [
+  "py314ft",
+  "py314ft-test",
+], no-default-feature = true, solve-group = "py314ft" }
+py314ft-build = { features = [
+  "py314ft",
+  "py314ft-build",
+], no-default-feature = true, solve-group = "py314ft" }
+py314ft-doc = { features = [
+  "py314ft",
+  "py314ft-doc",
+], no-default-feature = true, solve-group = "py314ft" }
+py314ft-notebook = { features = [
+  "py314ft",
+  "py314ft-notebook",
+], no-default-feature = true, solve-group = "py314ft" }
 
 # [tool.build-dependencies]
 # # hatchling = ">=1.27.0,<2"
@@ -67,30 +105,46 @@ glibc217 = { features = [
 [dependencies]
 python = ">=3.10"
 
+[feature.py314ft.dependencies]
+python = ">=3.10"
+python-freethreading = "*"
+
 
 [pypi-dependencies]
 numberlink = { path = ".", editable = true }
-numpy = ">=2.0,<3"
-gymnasium = ">=1.0,<2"
-pygame = ">=2.0,<3"
+numpy = ">=1.21,<3"
+gymnasium = ">=1.1,<2"
+
+[feature.py314ft.pypi-dependencies]
+numberlink = { path = ".", editable = true }
+numpy = ">=1.21,<3"
+gymnasium = ">=1.1,<2"
+
+# The `human` render mode and `numberlink.viewer` need pygame, which is kept out of the core dependencies so the
+# package installs from wheels alone. pygame-ce publishes no free-threaded wheels, so the py314ft environments omit it.
+[feature.human.pypi-dependencies]
+pygame-ce = ">=2.1.3,<3"
 
 
 [feature.dev.dependencies]
-ruff = "*"
-pyright = ">=1.1.403,<2"
-shellcheck = ">=0.10.0,<0.11"
-mypy = ">=1.17.0,<2"
-yamllint = ">=1.37.1,<2"
-ipykernel = ">=7.0.1,<8"
-ipywidgets = ">=8.1.7,<9"
-ipyevents = ">=2.0.4,<3"
+shellcheck = "*"
+yamllint = "*"
 
 [feature.dev.pypi-dependencies]
-types-defusedxml = ">=0.7.0.20250822, <0.8"
-types-pytz = ">=2025.2.0.20250809, <2026"
-pre-commit = ">=4.3.0, <5"
-cffconvert = ">=2.0.0, <3"
-imageio = ">=2.37.0, <3"
+ruff = "*"
+pyright = "*"
+mypy = "*"
+pyrefly = "*"
+ty = "*"
+ipykernel = "*"
+ipywidgets = "*"
+ipyevents = "*"
+pre-commit = "*"
+cffconvert = "*"
+imageio = "*"
+types-defusedxml = "*"
+types-pytz = "*"
+types-pycurl = "*"
 
 [feature.dev.tasks]
 lint = "ruff check --fix"
@@ -98,13 +152,60 @@ ulint = "ruff check --fix --unsafe-fixes"
 format = "ruff format"
 fix = "ruff check --fix --unsafe-fixes; ruff format"
 format-check = "ruff format --check"
-pyright = "pyright"
-mypy = "mypy numberlink"
 typecheck = "pyright && mypy numberlink"
 yamllint = "yamllint ."
 shellcheck = "[ -d scripts ] && find scripts -type f -name '*.sh' -exec shellcheck {} + || true"
 check = "ruff check && ruff format --check && pyright && mypy numberlink && yamllint . && (test ! -d scripts || ! find scripts -type f -name '*.sh' | grep -q . || find scripts -type f -name '*.sh' | xargs shellcheck)"
 update-citation = "bash scripts/update_citation.sh"
+
+[feature.dev.tasks.fmt]
+args = [
+  { "arg" = "dir", "default" = "numberlink" },
+  { "arg" = "config_file", "default" = "mypy.ini" },
+]
+cmd = "ruff check --fix --unsafe-fixes {{ dir }}; ruff format {{ dir }}; mypy {{ dir }} --config-file={{ config_file }} --cache-fine-grained --cache-dir=.mypy_cache && pyright {{ dir }}"
+
+
+[feature.py314ft-dev.dependencies]
+shellcheck = "*"
+yamllint = "*"
+
+[feature.py314ft-dev.pypi-dependencies]
+ruff = "*"
+pyright = "*"
+mypy = "*"
+pyrefly = "*"
+ty = "*"
+pre-commit = "*"
+cffconvert = "*"
+imageio = "*"
+ipykernel = "*"
+ipywidgets = "*"
+ipyevents = "*"
+types-defusedxml = "*"
+types-pytz = "*"
+types-colorama = "*"
+types-pycurl = "*"
+
+[feature.py314ft-dev.tasks]
+lint = "ruff check --fix"
+ulint = "ruff check --fix --unsafe-fixes"
+format = "ruff format"
+fix = "ruff check --fix --unsafe-fixes; ruff format"
+format-check = "ruff format --check"
+typecheck = "pyright && mypy numberlink"
+yamllint = "yamllint ."
+shellcheck = "[ -d scripts ] && find scripts -type f -name '*.sh' -exec shellcheck {} + || true"
+check = "ruff check && ruff format --check && pyright && mypy numberlink && yamllint . && (test ! -d scripts || ! find scripts -type f -name '*.sh' | grep -q . || find scripts -type f -name '*.sh' | xargs shellcheck)"
+update-citation = "bash scripts/update_citation.sh"
+
+[feature.py314ft-dev.tasks.fmt]
+args = [
+  { "arg" = "dir", "default" = "numberlink" },
+  { "arg" = "config_file", "default" = "mypy.ini" },
+]
+cmd = "ruff check --fix --unsafe-fixes {{ dir }}; ruff format {{ dir }}; mypy {{ dir }} --config-file={{ config_file }} --cache-fine-grained --cache-dir=.mypy_cache && pyright {{ dir }}"
+
 
 [feature.test.tasks]
 test = "pytest -q"
@@ -115,27 +216,44 @@ nose2 = "nose2 -v"
 coverage-html = "pytest --cov=numberlink --cov-report=html:htmlcov -q"
 
 [feature.test.pypi-dependencies]
-pytest = ">=8.4.2, <9"
-nose2 = ">=0.15.1, <0.16"
-pytest-cov = ">=7.0.0, <8"
-tox = ">=4.31.0, <5"
-pillow = ">=12.0.0, <13"
+pytest = "*"
+nose2 = "*"
+pytest-cov = "*"
+tox = "*"
+pillow = "*"
+
+
+[feature.py314ft-test.tasks]
+test = "pytest -q"
+test-coverage = "pytest --cov=numberlink --cov-report=term-missing --cov-report=xml:coverage.xml -q"
+test-slowest = "pytest --durations=10 -q"
+tox = "tox -q"
+nose2 = "nose2 -v"
+coverage-html = "pytest --cov=numberlink --cov-report=html:htmlcov -q"
+
+[feature.py314ft-test.pypi-dependencies]
+pytest = "*"
+nose2 = "*"
+pytest-cov = "*"
+tox = "*"
+pillow = "*"
+
 
 [feature.notebook.pypi-dependencies]
-ipython = ">=9.6.0, <10"
-ipywidgets = ">=8.1.7, <9"
-ipyevents = ">=2.0.4, <3"
-pillow = ">=12.0.0, <13"
+ipython = "*"
+ipywidgets = "*"
+ipyevents = "*"
+pillow = "*"
 
 
 [feature.doc.dependencies]
-python = ">=3.10,<3.15"
-furo = ">=2024.8.6,<2025"
-sphinx-copybutton = ">=0.5.2,<0.6"
-sphinx-autodoc2 = ">=0.5.0,<0.6"
-sphinx-sitemap = ">=2.9.0,<3"
-myst-parser = ">=4.0.1,<5"
-linkify-it-py = ">=2.0.3,<3"
+python = ">=3.10"
+furo = "*"
+sphinx-copybutton = "*"
+sphinx-autodoc2 = "*"
+sphinx-sitemap = "*"
+myst-parser = "*"
+linkify-it-py = "*"
 
 [feature.doc.pypi-dependencies]
 # myst-parser = { version = "*", extras = ["linkify"] }
@@ -148,14 +266,48 @@ docs-serve = "python -m http.server --bind 127.0.0.1 --directory docs/_build/htm
 docs-run = "rm -rf docs/_build docs/apidocs && sphinx-build -nW --keep-going -b html docs docs/_build/html && python -m http.server --bind 127.0.0.1 --directory docs/_build/html 8000"
 
 
-[feature.glibc217.system-requirements]
-libc = { family = "glibc", version = "2.17" }
-
-
-[feature.build.dependencies]
+[feature.build.pypi-dependencies]
 hatch = "*"
 
 [feature.build.tasks]
+build = "pixi build -o dist && rm -rf .build-debug dist/linux-64 dist/win-64 dist/osx-64 dist/osx-arm64 dist/linux-aarch64 dist/noarch"
+build-clean = "pixi build --clean -o dist && rm -rf .build-debug dist/linux-64 dist/win-64 dist/osx-64 dist/osx-arm64 dist/linux-aarch64 dist/noarch"
+buildpy = "hatch build -t wheel -t sdist"
+buildpy-clean = "hatch build -t wheel -t sdist --clean"
+build-all = "pixi build -o dist && rm -rf .build-debug dist/linux-64 dist/win-64 dist/osx-64 dist/osx-arm64 dist/linux-aarch64 dist/noarch && hatch build -t wheel -t sdist"
+
+
+[feature.py314ft-notebook.pypi-dependencies]
+ipython = "*"
+ipywidgets = "*"
+ipyevents = "*"
+pillow = "*"
+
+
+[feature.py314ft-doc.dependencies]
+python = ">=3.10"
+furo = "*"
+sphinx-copybutton = "*"
+sphinx-autodoc2 = "*"
+sphinx-sitemap = "*"
+myst-parser = "*"
+linkify-it-py = "*"
+
+[feature.py314ft-doc.pypi-dependencies]
+# myst-parser = { version = "*", extras = ["linkify"] }
+
+[feature.py314ft-doc.tasks]
+docs = "sphinx-build -b html docs docs/_build/html"
+docs-nitpick = "sphinx-build -nW --keep-going -b html docs docs/_build/html"
+docs-clean = "rm -rf docs/_build docs/apidocs"
+docs-serve = "python -m http.server --bind 127.0.0.1 --directory docs/_build/html 8000"
+docs-run = "rm -rf docs/_build docs/apidocs && sphinx-build -nW --keep-going -b html docs docs/_build/html && python -m http.server --bind 127.0.0.1 --directory docs/_build/html 8000"
+
+
+[feature.py314ft-build.pypi-dependencies]
+hatch = "*"
+
+[feature.py314ft-build.tasks]
 build = "pixi build -o dist && rm -rf .build-debug dist/linux-64 dist/win-64 dist/osx-64 dist/osx-arm64 dist/linux-aarch64 dist/noarch"
 build-clean = "pixi build --clean -o dist && rm -rf .build-debug dist/linux-64 dist/win-64 dist/osx-64 dist/osx-arm64 dist/linux-aarch64 dist/noarch"
 buildpy = "hatch build -t wheel -t sdist"

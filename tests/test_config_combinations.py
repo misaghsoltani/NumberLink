@@ -1,17 +1,21 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import numpy as np
-from numpy.typing import NDArray
 import pytest
 
 from numberlink import GeneratorConfig, NumberLinkRGBEnv, RenderConfig, RewardConfig, VariantConfig
-from numberlink.types import RGBInt
 
 from .helpers import save_gif
 from .test_utils import add_frame_border
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from numpy.typing import NDArray
+
+    from numberlink.types import RGBInt
 
 
 def small_render_config(h: int, w: int, show_numbers: bool, font_max: int | None = None) -> RenderConfig:
@@ -48,13 +52,13 @@ def visual_render_config(h: int, w: int, **kwargs: Any) -> RenderConfig:
     return RenderConfig(**defaults)
 
 
-def run_env_and_capture(env: NumberLinkRGBEnv, max_steps: int = 30) -> tuple[list[np.ndarray], bool]:
+def run_env_and_capture(env: NumberLinkRGBEnv, max_steps: int = 30) -> tuple[list[NDArray[np.uint8]], bool]:
     """Run environment taking valid actions and capture frames. Returns (frames, won)."""
-    frames: list[np.ndarray] = []
-    obs, info = env.reset()
-    frames.append(add_frame_border(cast(np.ndarray, env.render())))
+    frames: list[NDArray[np.uint8]] = []
+    _obs, info = env.reset()
+    frames.append(add_frame_border(env.render_rgb()))
 
-    mask: NDArray[np.uint8] = cast(NDArray[np.uint8], info["action_mask"])
+    mask: NDArray[np.uint8] = cast("NDArray[np.uint8]", info["action_mask"])
     won = False
 
     for _ in range(max_steps):
@@ -62,9 +66,9 @@ def run_env_and_capture(env: NumberLinkRGBEnv, max_steps: int = 30) -> tuple[lis
         if valid.size == 0:
             break
         act = int(valid[0])
-        obs, reward, terminated, truncated, info = env.step(act)
-        frames.append(add_frame_border(cast(np.ndarray, env.render())))
-        mask = cast(NDArray[np.uint8], info["action_mask"])
+        _obs, _reward, terminated, truncated, info = env.step(act)
+        frames.append(add_frame_border(env.render_rgb()))
+        mask = cast("NDArray[np.uint8]", info["action_mask"])
 
         if terminated:
             won = True
@@ -132,21 +136,22 @@ def test_all_config_combinations_smoke(
         obs, info = env.reset()
         assert isinstance(obs, np.ndarray)
         assert obs.dtype == np.uint8
-        assert obs.ndim == 3 and obs.shape[-1] == 3
+        assert obs.ndim == 3
+        assert obs.shape[-1] == 3
         assert "action_mask" in info
 
         # Take up to 15 valid actions (or until done)
-        mask: NDArray[np.uint8] = cast(NDArray[np.uint8], info["action_mask"])
+        mask: NDArray[np.uint8] = cast("NDArray[np.uint8]", info["action_mask"])
         steps = 0
         while steps < 15:
             valid = np.where(mask > 0)[0]
             if valid.size == 0:
                 break
             act = int(valid[0])
-            obs, reward_val, terminated, truncated, info = env.step(act)
+            obs, _reward_val, terminated, truncated, info = env.step(act)
             assert isinstance(obs, np.ndarray)
             assert obs.dtype == np.uint8
-            mask = cast(NDArray[np.uint8], info["action_mask"])
+            mask = cast("NDArray[np.uint8]", info["action_mask"])
             steps += 1
             if terminated or truncated:
                 break
@@ -159,7 +164,7 @@ def test_all_config_combinations_smoke(
 
 @pytest.mark.visual
 @pytest.mark.parametrize(
-    "variant_name,variant,gen_overrides",
+    ("variant_name", "variant", "gen_overrides"),
     [
         (
             "standard",
@@ -215,7 +220,7 @@ def test_visual_variant_configs(
     )
 
     try:
-        frames, won = run_env_and_capture(env, max_steps=40)
+        frames, _won = run_env_and_capture(env, max_steps=40)
         save_gif(frames, output_dir / f"variant_{variant_name}.gif", fps=8)
         assert len(frames) > 0
     finally:
@@ -227,7 +232,7 @@ def test_visual_variant_configs(
 
 @pytest.mark.visual
 @pytest.mark.parametrize(
-    "mode,seed,name",
+    ("mode", "seed", "name"),
     [
         ("random_walk", 42, "random_walk_1"),
         ("random_walk", 123, "random_walk_2"),
@@ -243,7 +248,7 @@ def test_visual_generator_modes(output_dir: Path, mode: str, seed: int, name: st
     env = NumberLinkRGBEnv(render_mode="rgb_array", generator=gen, render_config=render, step_limit=100)
 
     try:
-        frames, won = run_env_and_capture(env, max_steps=40)
+        frames, _won = run_env_and_capture(env, max_steps=40)
         save_gif(frames, output_dir / f"generator_{name}.gif", fps=8)
         assert len(frames) > 0
     finally:
@@ -252,7 +257,7 @@ def test_visual_generator_modes(output_dir: Path, mode: str, seed: int, name: st
 
 @pytest.mark.visual
 @pytest.mark.parametrize(
-    "width,height,colors,name",
+    ("width", "height", "colors", "name"),
     [
         (4, 4, 2, "small_4x4"),
         (6, 6, 3, "medium_6x6"),
@@ -269,7 +274,7 @@ def test_visual_generator_sizes(output_dir: Path, width: int, height: int, color
     env = NumberLinkRGBEnv(render_mode="rgb_array", generator=gen, render_config=render, step_limit=width * height * 2)
 
     try:
-        frames, won = run_env_and_capture(env, max_steps=50)
+        frames, _won = run_env_and_capture(env, max_steps=50)
         save_gif(frames, output_dir / f"size_{name}.gif", fps=10)
         assert len(frames) > 0
     finally:
@@ -277,7 +282,7 @@ def test_visual_generator_sizes(output_dir: Path, width: int, height: int, color
 
 
 @pytest.mark.visual
-@pytest.mark.parametrize("bridge_prob,name", [(0.0, "no_bridges"), (0.2, "few_bridges"), (0.5, "many_bridges")])
+@pytest.mark.parametrize(("bridge_prob", "name"), [(0.0, "no_bridges"), (0.2, "few_bridges"), (0.5, "many_bridges")])
 def test_visual_bridges_probability(output_dir: Path, bridge_prob: float, name: str) -> None:
     """Visual test for different bridge probabilities."""
     gen = GeneratorConfig(mode="random_walk", width=7, height=7, colors=4, bridges_probability=bridge_prob, seed=300)
@@ -289,7 +294,7 @@ def test_visual_bridges_probability(output_dir: Path, bridge_prob: float, name: 
     )
 
     try:
-        frames, won = run_env_and_capture(env, max_steps=50)
+        frames, _won = run_env_and_capture(env, max_steps=50)
         save_gif(frames, output_dir / f"bridges_{name}.gif", fps=8)
         assert len(frames) > 0
     finally:
@@ -301,7 +306,7 @@ def test_visual_bridges_probability(output_dir: Path, bridge_prob: float, name: 
 
 @pytest.mark.visual
 @pytest.mark.parametrize(
-    "border_thick,border_color,name",
+    ("border_thick", "border_color", "name"),
     [
         (0, (255, 255, 255), "no_border"),
         (1, (255, 255, 255), "thin_white"),
@@ -325,7 +330,7 @@ def test_visual_endpoint_borders(output_dir: Path, border_thick: int, border_col
     env = NumberLinkRGBEnv(render_mode="rgb_array", generator=gen, render_config=render, step_limit=100)
 
     try:
-        frames, won = run_env_and_capture(env, max_steps=30)
+        frames, _won = run_env_and_capture(env, max_steps=30)
         save_gif(frames, output_dir / f"endpoint_border_{name}.gif", fps=8)
         assert len(frames) > 0
     finally:
@@ -334,7 +339,7 @@ def test_visual_endpoint_borders(output_dir: Path, border_thick: int, border_col
 
 @pytest.mark.visual
 @pytest.mark.parametrize(
-    "gridline_color,gridline_thick,name",
+    ("gridline_color", "gridline_thick", "name"),
     [
         (None, 1, "no_gridlines"),
         ((60, 60, 60), 1, "gray_thin"),
@@ -358,7 +363,7 @@ def test_visual_gridlines(output_dir: Path, gridline_color: RGBInt | None, gridl
     env = NumberLinkRGBEnv(render_mode="rgb_array", generator=gen, render_config=render, step_limit=100)
 
     try:
-        frames, won = run_env_and_capture(env, max_steps=30)
+        frames, _won = run_env_and_capture(env, max_steps=30)
         save_gif(frames, output_dir / f"gridlines_{name}.gif", fps=8)
         assert len(frames) > 0
     finally:
@@ -367,7 +372,7 @@ def test_visual_gridlines(output_dir: Path, gridline_color: RGBInt | None, gridl
 
 @pytest.mark.visual
 @pytest.mark.parametrize(
-    "bg_color,name",
+    ("bg_color", "name"),
     [
         ((0, 0, 0), "black"),
         ((255, 255, 255), "white"),
@@ -386,7 +391,7 @@ def test_visual_background_colors(output_dir: Path, bg_color: RGBInt, name: str)
     env = NumberLinkRGBEnv(render_mode="rgb_array", generator=gen, render_config=render, step_limit=100)
 
     try:
-        frames, won = run_env_and_capture(env, max_steps=30)
+        frames, _won = run_env_and_capture(env, max_steps=30)
         save_gif(frames, output_dir / f"background_{name}.gif", fps=8)
         assert len(frames) > 0
     finally:
@@ -395,7 +400,7 @@ def test_visual_background_colors(output_dir: Path, bg_color: RGBInt, name: str)
 
 @pytest.mark.visual
 @pytest.mark.parametrize(
-    "show_numbers,font_color,font_border_color,font_border_thick,name",
+    ("show_numbers", "font_color", "font_border_color", "font_border_thick", "name"),
     [
         (True, (255, 255, 255), (0, 0, 0), 1, "white_black_thin"),
         (True, (0, 0, 0), (255, 255, 255), 1, "black_white_thin"),
@@ -427,7 +432,7 @@ def test_visual_endpoint_numbers(
     env = NumberLinkRGBEnv(render_mode="rgb_array", generator=gen, render_config=render, step_limit=100)
 
     try:
-        frames, won = run_env_and_capture(env, max_steps=30)
+        frames, _won = run_env_and_capture(env, max_steps=30)
         save_gif(frames, output_dir / f"numbers_{name}.gif", fps=8)
         assert len(frames) > 0
     finally:
@@ -436,7 +441,7 @@ def test_visual_endpoint_numbers(
 
 @pytest.mark.visual
 @pytest.mark.parametrize(
-    "font_min,font_max,name",
+    ("font_min", "font_max", "name"),
     [(1, None, "auto_scale"), (1, 2, "limited_small"), (1, 3, "limited_medium"), (2, 4, "limited_large")],
 )
 def test_visual_font_scaling(output_dir: Path, font_min: int, font_max: int | None, name: str) -> None:
@@ -453,7 +458,7 @@ def test_visual_font_scaling(output_dir: Path, font_min: int, font_max: int | No
     env = NumberLinkRGBEnv(render_mode="rgb_array", generator=gen, render_config=render, step_limit=100)
 
     try:
-        frames, won = run_env_and_capture(env, max_steps=30)
+        frames, _won = run_env_and_capture(env, max_steps=30)
         save_gif(frames, output_dir / f"font_scale_{name}.gif", fps=8)
         assert len(frames) > 0
     finally:
@@ -462,7 +467,7 @@ def test_visual_font_scaling(output_dir: Path, font_min: int, font_max: int | No
 
 @pytest.mark.visual
 @pytest.mark.parametrize(
-    "adjustment,name",
+    ("adjustment", "name"),
     [(-50, "darker"), (-20, "slightly_darker"), (0, "normal"), (20, "slightly_brighter"), (50, "brighter")],
 )
 def test_visual_connection_color_adjustment(output_dir: Path, adjustment: int, name: str) -> None:
@@ -479,7 +484,7 @@ def test_visual_connection_color_adjustment(output_dir: Path, adjustment: int, n
     env = NumberLinkRGBEnv(render_mode="rgb_array", generator=gen, render_config=render, step_limit=100)
 
     try:
-        frames, won = run_env_and_capture(env, max_steps=30)
+        frames, _won = run_env_and_capture(env, max_steps=30)
         save_gif(frames, output_dir / f"color_adjustment_{name}.gif", fps=8)
         assert len(frames) > 0
     finally:
@@ -488,7 +493,7 @@ def test_visual_connection_color_adjustment(output_dir: Path, adjustment: int, n
 
 @pytest.mark.visual
 @pytest.mark.parametrize(
-    "render_h,render_w,name",
+    ("render_h", "render_w", "name"),
     [(None, None, "default"), (120, 120, "120x120"), (200, 200, "200x200"), (96, 160, "96x160_rect")],
 )
 def test_visual_render_dimensions(output_dir: Path, render_h: int | None, render_w: int | None, name: str) -> None:
@@ -511,7 +516,7 @@ def test_visual_render_dimensions(output_dir: Path, render_h: int | None, render
     env = NumberLinkRGBEnv(render_mode="rgb_array", generator=gen, render_config=render, step_limit=100)
 
     try:
-        frames, won = run_env_and_capture(env, max_steps=30)
+        frames, _won = run_env_and_capture(env, max_steps=30)
         save_gif(frames, output_dir / f"dimensions_{name}.gif", fps=8)
         assert len(frames) > 0
     finally:
@@ -523,7 +528,7 @@ def test_visual_render_dimensions(output_dir: Path, render_h: int | None, render
 
 @pytest.mark.visual
 @pytest.mark.parametrize(
-    "reward_name,reward",
+    ("reward_name", "reward"),
     [
         ("default", RewardConfig()),
         ("high_penalties", RewardConfig(step_penalty=-0.1, invalid_penalty=-0.5)),
@@ -542,7 +547,7 @@ def test_visual_reward_configs(output_dir: Path, reward_name: str, reward: Rewar
     )
 
     try:
-        frames, won = run_env_and_capture(env, max_steps=30)
+        frames, _won = run_env_and_capture(env, max_steps=30)
         save_gif(frames, output_dir / f"reward_{reward_name}.gif", fps=8)
         assert len(frames) > 0
     finally:
@@ -581,7 +586,7 @@ def test_visual_all_features_combined(output_dir: Path) -> None:
     )
 
     try:
-        frames, won = run_env_and_capture(env, max_steps=50)
+        frames, _won = run_env_and_capture(env, max_steps=50)
         save_gif(frames, output_dir / "combined_all_features.gif", fps=10)
         assert len(frames) > 0
     finally:
@@ -614,7 +619,7 @@ def test_visual_variety_showcase(output_dir: Path, seed: int) -> None:
     )
 
     try:
-        frames, won = run_env_and_capture(env, max_steps=40)
+        frames, _won = run_env_and_capture(env, max_steps=40)
         save_gif(frames, output_dir / f"variety_seed_{seed}.gif", fps=8)
         assert len(frames) > 0
     finally:

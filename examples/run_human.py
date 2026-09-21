@@ -1,13 +1,14 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
 import gymnasium as gym
-import numpy as np
 
 from numberlink import GeneratorConfig, NumberLinkViewer, RenderConfig, VariantConfig
 
 if TYPE_CHECKING:
+    import numpy as np
     from numpy.typing import NDArray
 
 

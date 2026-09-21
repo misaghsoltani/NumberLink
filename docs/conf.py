@@ -27,12 +27,10 @@ version: str = release  # or: ".".join(release.split(".")[:2])
 meta: PackageMetadata = _pkg_metadata(dist_name)
 raw_author: str = meta.get("Author", "") or ""
 author: str = (
-    raw_author
-    if raw_author
-    else re.sub(r"\s*[<(].*[)>]", "", meta.get("Author-email", "") or "").strip() or "NumberLink authors"
+    raw_author or re.sub(r"\s*[<(].*[)>]", "", meta.get("Author-email", "") or "").strip() or "NumberLink authors"
 )
 
-copyright: str = f"{time.localtime().tm_year} {author}"
+project_copyright: str = f"{time.localtime().tm_year} {author}"
 description: str = "NumberLink Puzzle Environment for Gymnasium"
 short_title: str = "NumberLink"
 long_title: str = "NumberLink Puzzle Environment for Gymnasium"
@@ -171,8 +169,7 @@ suppress_warnings: list[str] = [
     "ref.python"  # occasionally helpful if we re-export Python stdlib names
 ]
 
-exclude_patterns.append("_autosummary")
-exclude_patterns.append("_includes")
+exclude_patterns.extend(("_autosummary", "_includes"))
 
 nitpick_ignore: list[tuple[str, str]] = [
     ("py:class", "RGBInt"),
@@ -232,6 +229,13 @@ nitpick_ignore: list[tuple[str, str]] = [
     ("py:attr", "numberlink.env.NumberLinkRGBEnv._palette_stack"),
     ("py:attr", "numberlink.env.NumberLinkRGBEnv._dirs"),
     ("py:data", "LEVELS"),
+    # The generic base of NumberLinkRGBVectorEnv is written with string forward references, so autodoc2 emits the
+    # short alias names as py:obj targets rather than resolving them.
+    ("py:obj", "NDArray"),
+    ("py:obj", "np.integer"),
+    ("py:obj", "np.float32 | np.bool_"),
+    # ResourceFile is a typing-only Protocol, so it has no runtime object for autodoc2 to document.
+    ("py:class", "numberlink.levels.ResourceFile"),
 ]
 
 
@@ -257,17 +261,16 @@ def linkcode_resolve(domain: str, info: dict[str, str]) -> str | None:
     except Exception:
         return None
 
-    obj = mod
+    obj: ModuleType = mod
     fullname: str = info.get("fullname", "")
 
     # Navigate to the object
-    for part in fullname.split(".") if fullname else []:
-        try:
+    try:
+        for part in fullname.split(".") if fullname else []:
             obj = getattr(obj, part)
-        except AttributeError:
-            # If we can't find the object, try to link to the module at least
-            obj = mod
-            break
+    except AttributeError:
+        # If we can't find the object, try to link to the module at least
+        obj = mod
 
     # First try: link to the exact object (works for functions/classes/methods)
     try:
@@ -290,7 +293,7 @@ def linkcode_resolve(domain: str, info: dict[str, str]) -> str | None:
         mod_fn: str = inspect.getsourcefile(mod) or inspect.getfile(mod)
         if fullname and obj is not mod:
             # Try to find where this name is defined in the module
-            with open(mod_fn, encoding="utf-8") as f:
+            with Path(mod_fn).open(encoding="utf-8") as f:
                 source_lines: list[str] = f.readlines()
 
             # Look for the attribute name at the module or class level
@@ -334,7 +337,7 @@ def linkcode_resolve(domain: str, info: dict[str, str]) -> str | None:
         return None
 
 
-def replace_types_content(app: Sphinx) -> None:
+def replace_types_content(_app: Sphinx) -> None:
     """Replace autodoc2-generated types.rst with our hand-written include.
 
     This runs after autodoc2 generates files, replacing the auto-generated

@@ -10,19 +10,18 @@ The primary entry point is :class:`numberlink.viewer.NumberLinkViewer`.
 from __future__ import annotations
 
 from collections import OrderedDict
-from importlib import import_module
+from importlib import import_module, resources
 import os
-from pathlib import Path
 import sys
 from typing import TYPE_CHECKING, cast
 import warnings
 
 import numpy as np
 
-from .env import NumberLinkRGBEnv
 from .number_render import BITMAP_FONT, build_endpoint_labels
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from types import ModuleType
 
     import gymnasium as gym
@@ -31,8 +30,13 @@ if TYPE_CHECKING:
     from pygame import Rect, Surface
     from pygame.time import Clock
 
+    from .env import NumberLinkRGBEnv
+    from .notebook_viewer import NumberLinkNotebookViewer
     from .types import ActType, CellLane, Coord, RGBInt, Snapshot
 
+
+_PACKAGE_NAME: str = __package__ or "numberlink"
+"""Import name of this package, used to resolve packaged assets and submodules."""
 
 GLYPH_CACHE_MAX: int = 512
 
@@ -92,6 +96,10 @@ class NumberLinkViewer:
     .. note::
        The viewer accesses internal environment attributes, e.g., :attr:`numberlink.env.NumberLinkRGBEnv._endpoint_mask`
        and :attr:`numberlink.env.NumberLinkRGBEnv._palette_stack` for efficient rendering.
+
+    .. note::
+       This class requires the optional :mod:`pygame` dependency. Constructing it without the ``numberlink[human]``
+       extra raises a :class:`RuntimeError` with details about the missing module.
     """
 
     _glyph_cache: OrderedDict[tuple[str, int, int, RGBInt, RGBInt | None], Surface]
@@ -109,11 +117,11 @@ class NumberLinkViewer:
         :param cell_size: Pixel size of each rendered cell. Defaults to ``48``.
         :type cell_size: int, optional
         :raises ValueError: If ``cell_size`` is less than or equal to zero.
+        :raises RuntimeError: If the optional :mod:`pygame` dependency cannot be imported. The error message names the
+            missing module and suggests installing ``numberlink[human]``.
         """
         if cell_size <= 0:
             raise ValueError(f"cell_size must be positive, got {cell_size}")
-
-        import warnings  # noqa: PLC0415
 
         warnings.filterwarnings(
             action="ignore",
@@ -122,20 +130,27 @@ class NumberLinkViewer:
             module=r"pygame\.pkgdata",
         )
 
-        self.pygame: ModuleType = import_module("pygame")
+        try:
+            self.pygame = import_module("pygame")
+        except ModuleNotFoundError as exc:
+            missing: str = exc.name or "pygame"
+            raise RuntimeError(
+                "Interactive viewer requires optional dependencies. Install with `pip install numberlink[human]`."
+                f" Missing module: {missing}."
+            ) from exc
         self._pygame_initialized: bool = False
 
         # Accept wrapped envs from gym.make and unwrap to the base env for direct state access
-        self.env: NumberLinkRGBEnv = cast(NumberLinkRGBEnv, env.unwrapped)
+        self.env: NumberLinkRGBEnv = cast("NumberLinkRGBEnv", env.unwrapped)
         self.cell: int = cell_size
         self.sel_color: int = 0
         self.sel_head: int = 0
         self.switch_mode: bool = self.env.variant.cell_switching_mode
         self.cursor: list[int] = [0, 0]
         if self.switch_mode:
-            free_cells: NDArray[np.int_] = np.argwhere(~self.env._endpoint_mask)
+            free_cells: NDArray[np.intp] = np.argwhere(~self.env.endpoint_mask)
             if free_cells.size > 0:
-                first: NDArray[np.int_] = free_cells[0]
+                first: NDArray[np.intp] = free_cells[0]
                 self.cursor = [int(first[0]), int(first[1])]
             # If no free cells exist (entire grid is endpoints), cursor remains at [0, 0]
 
@@ -163,13 +178,14 @@ class NumberLinkViewer:
         if self._pygame_initialized:
             return
 
-        pygame: ModuleType = self.pygame
+        pygame = self.pygame
         pygame.init()
         try:
-            png_path: Path = (Path(__file__).parent / "assets" / "numberlink-logo.png").resolve()
-            if png_path.exists():
-                icon_surf: Surface = pygame.image.load(str(png_path))
-                pygame.display.set_icon(icon_surf)
+            icon_resource = resources.files(_PACKAGE_NAME) / "assets" / "numberlink-logo.png"
+            with resources.as_file(icon_resource) as icon_path:
+                if icon_path.exists():
+                    icon_surf: Surface = pygame.image.load(str(icon_path))
+                    pygame.display.set_icon(icon_surf)
         except Exception:
             pass
 
@@ -204,7 +220,7 @@ class NumberLinkViewer:
             raise ValueError(f"Invalid environment dimensions: W={self.env.W}, H={self.env.H}")
 
         try:
-            pygame: ModuleType = self.pygame
+            pygame = self.pygame
             self.window = pygame.display.set_mode((self.env.W * self.cell, self.env.H * self.cell))
 
             clock: Clock = pygame.time.Clock()
@@ -276,7 +292,7 @@ class NumberLinkViewer:
         :param key: Numeric key code from :mod:`pygame`.
         :type key: int
         """
-        pygame: ModuleType = self.pygame
+        pygame = self.pygame
         mods: int = pygame.key.get_mods()
         if key == pygame.K_TAB and (mods & pygame.KMOD_SHIFT):
             self._cycle_color(-1)
@@ -320,7 +336,7 @@ class NumberLinkViewer:
         :param key: Numeric key code from :mod:`pygame`.
         :type key: int
         """
-        pygame: ModuleType = self.pygame
+        pygame = self.pygame
         mods: int = pygame.key.get_mods()
         if key == pygame.K_TAB and (mods & pygame.KMOD_SHIFT):
             self._cycle_color(-1)
@@ -360,12 +376,12 @@ class NumberLinkViewer:
             if idx == -1:
                 # Clear the cell
                 row, col = self.cursor
-                if 0 <= row < self.env.H and 0 <= col < self.env.W and not self.env._endpoint_mask[row, col]:
+                if 0 <= row < self.env.H and 0 <= col < self.env.W and not self.env.endpoint_mask[row, col]:
                     # Only attempt to clear if cell is not already empty
                     cell_occupied: bool = (
-                        self.env._grid_codes[row, col] != 0
-                        or self.env._lane_v[row, col] != 0
-                        or self.env._lane_h[row, col] != 0
+                        self.env.grid_codes[row, col] != 0
+                        or self.env.lane_v[row, col] != 0
+                        or self.env.lane_h[row, col] != 0
                     )
                     if cell_occupied:
                         action: int = self.env.encode_cell_switching_action(row, col, 0)
@@ -502,14 +518,14 @@ class NumberLinkViewer:
     def _snapshot_state(self) -> Snapshot:
         """Capture a deep copy of environment and viewer state for later restoration."""
         snap: Snapshot = {
-            "_grid_codes": self.env._grid_codes.copy(),
-            "_lane_v": self.env._lane_v.copy(),
-            "_lane_h": self.env._lane_h.copy(),
+            "_grid_codes": self.env.grid_codes.copy(),
+            "_lane_v": self.env.lane_v.copy(),
+            "_lane_h": self.env.lane_h.copy(),
             # Heads and stacks: capture the runtime tuple structures
-            "_heads": [[(r, c) for (r, c) in heads] for heads in self.env._heads],
-            "_stacks": [[[(r, c, lane) for (r, c, lane) in arm] for arm in color] for color in self.env._stacks],
-            "_closed": self.env._closed.copy(),
-            "_steps": self.env._steps,
+            "_heads": [[(r, c) for (r, c) in heads] for heads in self.env.heads],
+            "_stacks": [[[(r, c, lane) for (r, c, lane) in arm] for arm in color] for color in self.env.stacks],
+            "_closed": self.env.closed.copy(),
+            "_steps": self.env.steps,
             # Viewer selections
             "sel_color": self.sel_color,
             "sel_head": self.sel_head,
@@ -521,14 +537,14 @@ class NumberLinkViewer:
     def _restore_state(self, snap: Snapshot) -> None:
         """Restore environment and viewer state from a snapshot obtained via :meth:`_snapshot_state`."""
         # Environment arrays
-        self.env._grid_codes[:, :] = snap["_grid_codes"]
-        self.env._lane_v[:, :] = snap["_lane_v"]
-        self.env._lane_h[:, :] = snap["_lane_h"]
-        self.env._heads = [[(r, c) for (r, c) in heads] for heads in snap["_heads"]]
+        self.env.grid_codes[:, :] = snap["_grid_codes"]
+        self.env.lane_v[:, :] = snap["_lane_v"]
+        self.env.lane_h[:, :] = snap["_lane_h"]
+        self.env.heads = [[(r, c) for (r, c) in heads] for heads in snap["_heads"]]
         # Rebuild stacks with tuples
-        self.env._stacks = [[[(r, c, lane) for (r, c, lane) in arm] for arm in color] for color in snap["_stacks"]]
-        self.env._closed[:] = snap["_closed"]
-        self.env._steps = snap["_steps"]
+        self.env.stacks = [[[(r, c, lane) for (r, c, lane) in arm] for arm in color] for color in snap["_stacks"]]
+        self.env.closed[:] = snap["_closed"]
+        self.env.steps = snap["_steps"]
         # Viewer selections
         self.sel_color = snap["sel_color"]
         self.sel_head = snap["sel_head"]
@@ -542,9 +558,9 @@ class NumberLinkViewer:
         self.sel_head = 0
         self.switch_mode = self.env.variant.cell_switching_mode
         if self.switch_mode:
-            free_cells: NDArray[np.int_] = np.argwhere(~self.env._endpoint_mask)
+            free_cells: NDArray[np.intp] = np.argwhere(~self.env.endpoint_mask)
             if free_cells.size > 0:
-                first: NDArray[np.int_] = free_cells[0]
+                first: NDArray[np.intp] = free_cells[0]
                 self.cursor = [int(first[0]), int(first[1])]
             else:
                 self.cursor = [0, 0]
@@ -593,8 +609,8 @@ class NumberLinkViewer:
         :return: Direction index or ``None``.
         :rtype: int or None
         """
-        for k in range(self.env._num_dirs):
-            if self.env._dirs[k][0] == dr and self.env._dirs[k][1] == dc:
+        for k in range(self.env.num_dirs):
+            if self.env.dirs[k][0] == dr and self.env.dirs[k][1] == dc:
                 return k
 
         return None
@@ -614,7 +630,7 @@ class NumberLinkViewer:
         if d_index is None or self.sel_color < 0 or self.sel_color >= self.env.num_colors:
             return
         self._ensure_color_ready_for_head()
-        base: int = self.sel_color * self.env._actions_per_color + self.sel_head * self.env._num_dirs
+        base: int = self.sel_color * self.env.actions_per_color + self.sel_head * self.env.num_dirs
         self.env.step(action=base + d_index)
 
     def _backtrack_selected(self) -> None:
@@ -625,16 +641,16 @@ class NumberLinkViewer:
         """
         if self.sel_color < 0 or self.sel_color >= self.env.num_colors:
             return
-        stacks: list[CellLane] = self.env._stacks[self.sel_color][self.sel_head]
+        stacks: list[CellLane] = self.env.stacks[self.sel_color][self.sel_head]
         if len(stacks) < 2:
             return
-        hr, hc = self.env._heads[self.sel_color][self.sel_head]
+        hr, hc = self.env.heads[self.sel_color][self.sel_head]
         pr, pc, _lane = stacks[-2]
         dr, dc = pr - hr, pc - hc
         d_index: int | None = self._direction_index(dr, dc)
         if d_index is None:
             return
-        base: int = self.sel_color * self.env._actions_per_color + self.sel_head * self.env._num_dirs
+        base: int = self.sel_color * self.env.actions_per_color + self.sel_head * self.env.num_dirs
         self.env.step(action=base + d_index)
 
     def _move_cursor(self, dr: int, dc: int) -> None:
@@ -664,7 +680,7 @@ class NumberLinkViewer:
             or row >= self.env.H
             or col < 0
             or col >= self.env.W
-            or self.env._endpoint_mask[row, col]
+            or self.env.endpoint_mask[row, col]
             or self.sel_color < 0
             or self.sel_color >= self.env.num_colors
         ):
@@ -672,10 +688,10 @@ class NumberLinkViewer:
 
         # Skip if the cell already has the selected color value
         desired_code: int = self.sel_color + 1
-        if not self.env._bridges[row, col]:
-            if int(self.env._grid_codes[row, col]) == desired_code:
+        if not self.env.bridges[row, col]:
+            if int(self.env.grid_codes[row, col]) == desired_code:
                 return
-        elif int(self.env._lane_v[row, col]) == desired_code and int(self.env._lane_h[row, col]) == desired_code:
+        elif int(self.env.lane_v[row, col]) == desired_code and int(self.env.lane_h[row, col]) == desired_code:
             return
 
         action: int = self.env.encode_cell_switching_action(row, col, desired_code)
@@ -751,7 +767,7 @@ class NumberLinkViewer:
         target_head: int | None = None
 
         # Endpoints take precedence
-        for ci, endpoints in enumerate(self.env._endpoints):
+        for ci, endpoints in enumerate(self.env.endpoints):
             if endpoints[0] == (row, col):
                 target_color = ci
                 target_head = 0
@@ -764,12 +780,12 @@ class NumberLinkViewer:
         # Current head locations
         if target_color is None:
             for ci in range(self.env.num_colors):
-                head0_r, head0_c = self.env._heads[ci][0]
+                head0_r, head0_c = self.env.heads[ci][0]
                 if head0_r == row and head0_c == col:
                     target_color = ci
                     target_head = 0
                     break
-                head1_r, head1_c = self.env._heads[ci][1]
+                head1_r, head1_c = self.env.heads[ci][1]
                 if head1_r == row and head1_c == col:
                     target_color = ci
                     target_head = 1
@@ -778,7 +794,7 @@ class NumberLinkViewer:
         # Stacks (path segments already traced)
         if target_color is None:
             for ci in range(self.env.num_colors):
-                stacks: list[list[CellLane]] = self.env._stacks[ci]
+                stacks: list[list[CellLane]] = self.env.stacks[ci]
                 chosen_head: int | None = None
                 tail_distance: int | None = None
                 for hi in (0, 1):
@@ -798,9 +814,9 @@ class NumberLinkViewer:
 
         # Occupancy derived from grid or lanes
         if target_color is None:
-            if self.env._bridges[row, col]:
-                v_code: int = int(self.env._lane_v[row, col])
-                h_code: int = int(self.env._lane_h[row, col])
+            if self.env.bridges[row, col]:
+                v_code: int = int(self.env.lane_v[row, col])
+                h_code: int = int(self.env.lane_h[row, col])
                 preferred_code: int = self.sel_color + 1
                 lane_code: int = 0
                 if preferred_code in {v_code, h_code}:
@@ -812,15 +828,15 @@ class NumberLinkViewer:
                 if lane_code > 0:
                     target_color = lane_code - 1
             else:
-                color_code: int = int(self.env._grid_codes[row, col])
+                color_code: int = int(self.env.grid_codes[row, col])
                 if color_code > 0:
                     target_color = color_code - 1
 
             if target_color is not None:
-                head0: Coord = self.env._heads[target_color][0]
-                head1: Coord = self.env._heads[target_color][1]
-                dist0: int = self.env._metric((head0[0], head0[1]), (row, col))
-                dist1: int = self.env._metric((head1[0], head1[1]), (row, col))
+                head0: Coord = self.env.heads[target_color][0]
+                head1: Coord = self.env.heads[target_color][1]
+                dist0: int = self.env.metric((head0[0], head0[1]), (row, col))
+                dist1: int = self.env.metric((head1[0], head1[1]), (row, col))
                 target_head = 0 if dist0 <= dist1 else 1
 
         if target_color is None:
@@ -853,14 +869,14 @@ class NumberLinkViewer:
             return
         self._select_focus_for_cell(row, col)
         self._ensure_color_ready_for_head()
-        head_r, head_c = self.env._heads[self.sel_color][self.sel_head]
+        head_r, head_c = self.env.heads[self.sel_color][self.sel_head]
         dr: int = row - head_r
         dc: int = col - head_c
         # Only move if adjacent
         if abs(dr) <= 1 and abs(dc) <= 1 and (dr != 0 or dc != 0):
             d_index: int | None = self._direction_index(dr, dc)
             if d_index is not None:
-                base: int = self.sel_color * self.env._actions_per_color + self.sel_head * self.env._num_dirs
+                base: int = self.sel_color * self.env.actions_per_color + self.sel_head * self.env.num_dirs
                 self.env.step(action=base + d_index)
 
     def _ensure_color_ready_for_head(self) -> None:
@@ -869,10 +885,10 @@ class NumberLinkViewer:
             return
         color: int = self.sel_color
         head: int = self.sel_head
-        stacks: list[list[CellLane]] = self.env._stacks[color]
+        stacks: list[list[CellLane]] = self.env.stacks[color]
         selected_stack: list[CellLane] = stacks[head]
         other_stack: list[CellLane] = stacks[1 - head]
-        if len(selected_stack) == 1 and len(other_stack) > 1 and not self.env._closed[color]:
+        if len(selected_stack) == 1 and len(other_stack) > 1 and not self.env.closed[color]:
             self.env.clear_color_path(color)
 
     def _draw(self) -> None:
@@ -885,9 +901,9 @@ class NumberLinkViewer:
         if self.window is None:
             return
 
-        self.window.fill(self.env._render_cfg.grid_background_color)
-        img: NDArray[np.uint8] = self.env._render_rgb()
-        pygame: ModuleType = self.pygame
+        self.window.fill(self.env.render_cfg.grid_background_color)
+        img: NDArray[np.uint8] = self.env.render_rgb()
+        pygame = self.pygame
 
         # Blit the env RGB image scaled to the window. make_surface expects (W, H, 3)
         arr_for_surface: NDArray[np.uint8] = np.transpose(img, (1, 0, 2))
@@ -896,11 +912,11 @@ class NumberLinkViewer:
         self.window.blit(scaled_surface, (0, 0))
 
         # Draw gridlines if configured and not already drawn into the RGB image
-        if self.env._render_cfg.gridline_color is not None and (
-            self.env._pixels_per_cell_h < 2 or self.env._pixels_per_cell_w < 2
+        if self.env.render_cfg.gridline_color is not None and (
+            self.env.pixels_per_cell_h < 2 or self.env.pixels_per_cell_w < 2
         ):
-            gridline_color: RGBInt = self.env._render_cfg.gridline_color
-            gridline_thickness: int = self.env._render_cfg.gridline_thickness
+            gridline_color: RGBInt = self.env.render_cfg.gridline_color
+            gridline_thickness: int = self.env.render_cfg.gridline_thickness
             # Vertical lines
             for c in range(self.env.W + 1):
                 x: int = c * self.cell
@@ -911,29 +927,29 @@ class NumberLinkViewer:
                 pygame.draw.line(self.window, gridline_color, (0, y), (self.env.W * self.cell, y), gridline_thickness)
 
         # Draw endpoint numbers with pygame only when env image doesn't have enough pixels-per-cell
-        if self.env._render_cfg.show_endpoint_numbers and (
-            self.env._pixels_per_cell_h < 10 or self.env._pixels_per_cell_w < 10
+        if self.env.render_cfg.show_endpoint_numbers and (
+            self.env.pixels_per_cell_h < 10 or self.env.pixels_per_cell_w < 10
         ):
             specs: list[tuple[str, Coord, RGBInt, int]] = build_endpoint_labels(
-                endpoints=self.env._endpoints,
+                endpoints=self.env.endpoints,
                 pixels_per_cell_h=self.cell,
                 pixels_per_cell_w=self.cell,
-                min_scale=self.env._render_cfg.number_font_min_scale,
-                max_scale=self.env._render_cfg.number_font_max_scale,
-                gridline_thickness=self.env._render_cfg.gridline_thickness or 0,
+                min_scale=self.env.render_cfg.number_font_min_scale,
+                max_scale=self.env.render_cfg.number_font_max_scale,
+                gridline_thickness=self.env.render_cfg.gridline_thickness or 0,
             )
             for text, center, _color, scale in specs:
                 text_s: str = text
                 center_px: Coord = (center[0], center[1])
                 color_rgb: RGBInt = (
-                    self.env._render_cfg.number_font_color[0],
-                    self.env._render_cfg.number_font_color[1],
-                    self.env._render_cfg.number_font_color[2],
+                    self.env.render_cfg.number_font_color[0],
+                    self.env.render_cfg.number_font_color[1],
+                    self.env.render_cfg.number_font_color[2],
                 )
                 border_rgb: RGBInt = (
-                    self.env._render_cfg.number_font_border_color[0],
-                    self.env._render_cfg.number_font_border_color[1],
-                    self.env._render_cfg.number_font_border_color[2],
+                    self.env.render_cfg.number_font_border_color[0],
+                    self.env.render_cfg.number_font_border_color[1],
+                    self.env.render_cfg.number_font_border_color[2],
                 )
                 scale_i: int = scale
                 self._draw_text_centered(
@@ -942,7 +958,7 @@ class NumberLinkViewer:
                     color=color_rgb,
                     scale=scale_i,
                     outline_color=border_rgb,
-                    outline_thickness=self.env._render_cfg.number_font_border_thickness,
+                    outline_thickness=self.env.render_cfg.number_font_border_thickness,
                 )
 
         # Draw cursor or head highlight
@@ -951,35 +967,35 @@ class NumberLinkViewer:
             if 0 <= row < self.env.H and 0 <= col < self.env.W:
                 rect: Rect = pygame.Rect(col * self.cell, row * self.cell, self.cell, self.cell)
                 border_color: RGBInt
-                if self.env._endpoint_mask[row, col]:
-                    border_color = self.env._render_cfg.cursor_endpoint_highlight_color
+                if self.env.endpoint_mask[row, col]:
+                    border_color = self.env.render_cfg.cursor_endpoint_highlight_color
                 elif 0 <= self.sel_color < self.env.num_colors:
-                    palette: NDArray[np.uint8] = self.env._palette_stack[self.sel_color]
+                    palette: NDArray[np.uint8] = self.env.palette_stack[self.sel_color]
                     border_color = (int(palette[0]), int(palette[1]), int(palette[2]))
                 else:
                     border_color = (255, 255, 255)  # Fallback white color
                 pygame.draw.rect(
-                    self.window, border_color, rect, width=max(1, self.env._render_cfg.cursor_highlight_thickness)
+                    self.window, border_color, rect, width=max(1, self.env.render_cfg.cursor_highlight_thickness)
                 )
         elif 0 <= self.sel_color < self.env.num_colors:
-            hr, hc = self.env._heads[self.sel_color][self.sel_head]
+            hr, hc = self.env.heads[self.sel_color][self.sel_head]
             if 0 <= hr < self.env.H and 0 <= hc < self.env.W:
                 rect = pygame.Rect(hc * self.cell, hr * self.cell, self.cell, self.cell)
                 pygame.draw.rect(
                     self.window,
-                    self.env._render_cfg.active_head_highlight_color,
+                    self.env.render_cfg.active_head_highlight_color,
                     rect,
-                    width=max(1, self.env._render_cfg.active_head_highlight_thickness),
+                    width=max(1, self.env.render_cfg.active_head_highlight_thickness),
                 )
 
         # Draw help overlay if enabled
         if self.show_help:
             self._draw_help_overlay()
 
-        solved: bool = self.env._is_solved()
-        action_mask: NDArray[np.uint8] = self.env._compute_action_mask()
-        deadlocked: bool = self.env._is_deadlocked(action_mask, solved)
-        truncated: bool = self.env._steps >= self.env.max_steps and not solved and not deadlocked
+        solved: bool = self.env.is_solved()
+        action_mask: NDArray[np.uint8] = self.env.compute_action_mask()
+        deadlocked: bool = self.env.is_deadlocked(action_mask, solved)
+        truncated: bool = self.env.steps >= self.env.max_steps and not solved and not deadlocked
         if solved or deadlocked or truncated:
             self._draw_status_overlay(solved, deadlocked, truncated)
 
@@ -1085,8 +1101,8 @@ class NumberLinkViewer:
         panel_h = min(max_panel_h, len(help_lines) * line_h + 2 * padding)
 
         overlay: Surface = self.pygame.Surface((panel_w, panel_h))
-        overlay.set_alpha(self.env._render_cfg.help_overlay_background_alpha)
-        overlay.fill(self.env._render_cfg.help_overlay_background_color)
+        overlay.set_alpha(self.env.render_cfg.help_overlay_background_alpha)
+        overlay.fill(self.env.render_cfg.help_overlay_background_color)
         self.window.blit(overlay, (10, 10))
 
         # Draw text using builtin bitmap font
@@ -1095,10 +1111,10 @@ class NumberLinkViewer:
             self._draw_text(
                 text=line,
                 topleft=(20, y_offset),
-                color=self.env._render_cfg.help_overlay_font_color,
+                color=self.env.render_cfg.help_overlay_font_color,
                 scale=text_scale,
-                outline_color=self.env._render_cfg.help_overlay_font_border_color,
-                outline_thickness=self.env._render_cfg.help_overlay_font_border_thickness,
+                outline_color=self.env.render_cfg.help_overlay_font_border_color,
+                outline_thickness=self.env.render_cfg.help_overlay_font_border_thickness,
             )
             y_offset += line_h
 
@@ -1131,7 +1147,7 @@ class NumberLinkViewer:
         origin_x: int = 0
         origin_y: int = 0
         # overlay: Surface | None = None
-        pygame: ModuleType = self.pygame
+        pygame = self.pygame
         for candidate_scale in (4, 3, 2):
             cw, ch, ls = self._metrics_for_scale(candidate_scale, line_spacing=6)
             wrapped: list[str] = self._wrap_lines(lines, cw, max_panel_w, padding=padding)
@@ -1143,8 +1159,8 @@ class NumberLinkViewer:
                 text_scale = candidate_scale
                 chosen_lines = wrapped
                 overlay: Surface = pygame.Surface((panel_w, panel_h))
-                overlay.set_alpha(self.env._render_cfg.help_overlay_background_alpha)
-                overlay.fill(self.env._render_cfg.help_overlay_background_color)
+                overlay.set_alpha(self.env.render_cfg.help_overlay_background_alpha)
+                overlay.fill(self.env.render_cfg.help_overlay_background_color)
                 origin_x = max(0, (self.env.W * self.cell - panel_w) // 2)
                 origin_y = max(0, (self.env.H * self.cell - panel_h) // 2)
                 self.window.blit(overlay, (origin_x, origin_y))
@@ -1159,10 +1175,10 @@ class NumberLinkViewer:
             self._draw_text(
                 text=line,
                 topleft=(text_x, y_offset),
-                color=self.env._render_cfg.help_overlay_font_color,
+                color=self.env.render_cfg.help_overlay_font_color,
                 scale=text_scale,
-                outline_color=self.env._render_cfg.help_overlay_font_border_color,
-                outline_thickness=self.env._render_cfg.help_overlay_font_border_thickness,
+                outline_color=self.env.render_cfg.help_overlay_font_border_color,
+                outline_thickness=self.env.render_cfg.help_overlay_font_border_thickness,
             )
             y_offset += line_h
 
@@ -1254,7 +1270,7 @@ class NumberLinkViewer:
                     mask[y0s : y0s + scale, x0s : x0s + scale] = True
 
         # create surface with per-pixel alpha
-        pygame: ModuleType = self.pygame
+        pygame = self.pygame
         if pygame.get_init() is False:
             raise RuntimeError("pygame not initialized for viewer glyph surface creation")
 
@@ -1345,14 +1361,14 @@ class NumberLinkViewer:
             xs: NDArray[np.intp]
             ys, xs = np.nonzero(border_mask)
             for yy, xx in zip(ys, xs, strict=True):
-                surf.set_at((xx, yy), (*outline, 255))
+                surf.set_at((int(xx), int(yy)), (*outline, 255))
 
         # Fill foreground excluding inner outline ring to keep inner outline visible
         fill_mask: NDArray[np.bool_] = mask & (~inner_ring)
         if fill_mask.any():
             ys, xs = np.nonzero(fill_mask)
             for yy, xx in zip(ys, xs, strict=True):
-                surf.set_at((xx, yy), (*fg, 255))
+                surf.set_at((int(xx), int(yy)), (*fg, 255))
 
         # insert and enforce LRU cap
         self._glyph_cache[key] = surf
@@ -1398,8 +1414,8 @@ class NumberLinkViewer:
             panel_w: int = min(max_w, max((len(s) * char_w for s in lines), default=0) + 2 * padding + 10)
             panel_h: int = min(max_h, len(lines) * line_h + 2 * padding)
             overlay: Surface = self.pygame.Surface((panel_w, panel_h))
-            overlay.set_alpha(self.env._render_cfg.help_overlay_background_alpha)
-            overlay.fill(self.env._render_cfg.help_overlay_background_color)
+            overlay.set_alpha(self.env.render_cfg.help_overlay_background_alpha)
+            overlay.fill(self.env.render_cfg.help_overlay_background_color)
             # bottom-left corner
             origin: Coord = (10, self.env.H * self.cell - panel_h - 10)
             self.window.blit(overlay, origin)
@@ -1408,10 +1424,10 @@ class NumberLinkViewer:
                 self._draw_text(
                     text=line,
                     topleft=(origin[0] + padding + 10, y),
-                    color=self.env._render_cfg.help_overlay_font_color,
+                    color=self.env.render_cfg.help_overlay_font_color,
                     scale=text_scale,
-                    outline_color=self.env._render_cfg.help_overlay_font_border_color,
-                    outline_thickness=self.env._render_cfg.help_overlay_font_border_thickness,
+                    outline_color=self.env.render_cfg.help_overlay_font_border_color,
+                    outline_thickness=self.env.render_cfg.help_overlay_font_border_thickness,
                 )
                 y += line_h
 
@@ -1449,8 +1465,8 @@ class NumberLinkViewer:
             panel_w = min(max_w, max((len(s) * char_w for s in lines), default=0) + 2 * padding + 10)
             panel_h = len(lines) * line_h + 2 * padding
             overlay = self.pygame.Surface((panel_w, panel_h))
-            overlay.set_alpha(self.env._render_cfg.help_overlay_background_alpha)
-            overlay.fill(self.env._render_cfg.help_overlay_background_color)
+            overlay.set_alpha(self.env.render_cfg.help_overlay_background_alpha)
+            overlay.fill(self.env.render_cfg.help_overlay_background_color)
             origin = (10, self.env.H * self.cell - panel_h - 10)
             self.window.blit(overlay, origin)
             y = origin[1] + padding
@@ -1458,10 +1474,10 @@ class NumberLinkViewer:
                 self._draw_text(
                     text=line,
                     topleft=(origin[0] + padding + 10, y),
-                    color=self.env._render_cfg.help_overlay_font_color,
+                    color=self.env.render_cfg.help_overlay_font_color,
                     scale=text_scale,
-                    outline_color=self.env._render_cfg.help_overlay_font_border_color,
-                    outline_thickness=self.env._render_cfg.help_overlay_font_border_thickness,
+                    outline_color=self.env.render_cfg.help_overlay_font_border_color,
+                    outline_thickness=self.env.render_cfg.help_overlay_font_border_thickness,
                 )
                 y += line_h
 
@@ -1469,7 +1485,7 @@ class NumberLinkViewer:
 def _detect_notebook_environment() -> str:
     """Return the active notebook environment identifier or ``"none"`` when not in a notebook."""
     try:
-        from IPython.core.getipython import get_ipython  # noqa: PLC0415
+        get_ipython: Callable[[], InteractiveShell | None] = import_module("IPython.core.getipython").get_ipython
     except ImportError:
         return "none"
 
@@ -1499,13 +1515,13 @@ def _show_notebook_missing_message(env_label: str, detail: str | None = None) ->
     message: str = f"{detail} {base_message}".strip() if detail else base_message
 
     try:
-        from IPython.display import Markdown, display  # noqa: PLC0415
+        ipython_display: ModuleType = import_module("IPython.display")
     except ImportError:
         warnings.warn(message, stacklevel=2)
         return
 
     prefix: str = "Google Colab" if env_label == "colab" else "Notebook"
-    display(Markdown(f"> **NumberLink {prefix} support** - {message}"))
+    ipython_display.display(ipython_display.Markdown(f"> **NumberLink {prefix} support** - {message}"))
 
 
 def _try_launch_notebook_viewer(base_viewer: NumberLinkViewer) -> bool:
@@ -1515,13 +1531,15 @@ def _try_launch_notebook_viewer(base_viewer: NumberLinkViewer) -> bool:
         return False
 
     try:
-        from .notebook_viewer import NumberLinkNotebookViewer  # noqa: PLC0415
+        notebook_viewer_module: ModuleType = import_module(f"{_PACKAGE_NAME}.notebook_viewer")
     except ImportError:
         _show_notebook_missing_message(env_label)
         return True
 
     try:
-        notebook_viewer = NumberLinkNotebookViewer(base_viewer.env, cell_size=base_viewer.cell)
+        notebook_viewer: NumberLinkNotebookViewer = notebook_viewer_module.NumberLinkNotebookViewer(
+            base_viewer.env, cell_size=base_viewer.cell
+        )
     except RuntimeError as exc:
         _show_notebook_missing_message(env_label, str(exc))
         return True

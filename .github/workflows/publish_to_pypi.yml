@@ -78,7 +78,8 @@ jobs:
       - name: Show artifact names output
         run: |
           echo "Artifacts JSON: ${{ needs.prep-artifacts.outputs.artifact_names }}" || true
-          echo "Parsed list:" && echo '${{ needs.prep-artifacts.outputs.artifact_names }}' | sed 's/[\[\]"]//g' | tr ',' '\n'
+          echo "Parsed list:"
+          echo '${{ needs.prep-artifacts.outputs.artifact_names }}' | sed 's/[\[\]"]//g' | tr ',' '\n'
 
       - name: Show artifacts (TestPyPI)
         run: ls -l dist
@@ -113,7 +114,8 @@ jobs:
       - name: Show artifact names output
         run: |
           echo "Artifacts JSON: ${{ needs.prep-artifacts.outputs.artifact_names }}" || true
-          echo "Parsed list:" && echo '${{ needs.prep-artifacts.outputs.artifact_names }}' | sed 's/[\[\]"]//g' | tr ',' '\n'
+          echo "Parsed list:"
+          echo '${{ needs.prep-artifacts.outputs.artifact_names }}' | sed 's/[\[\]"]//g' | tr ',' '\n'
 
       - name: Show merged artifacts
         run: ls -l dist
@@ -147,7 +149,8 @@ jobs:
       - name: Show artifact names output
         run: |
           echo "Artifacts JSON: ${{ needs.prep-artifacts.outputs.artifact_names }}" || true
-          echo "Parsed list:" && echo '${{ needs.prep-artifacts.outputs.artifact_names }}' | sed 's/[\[\]"]//g' | tr ',' '\n'
+          echo "Parsed list:"
+          echo '${{ needs.prep-artifacts.outputs.artifact_names }}' | sed 's/[\[\]"]//g' | tr ',' '\n'
           ls -l dist || true
 
       - name: Generate build provenance (SLSA v1 predicate)

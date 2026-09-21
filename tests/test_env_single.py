@@ -1,18 +1,23 @@
 from __future__ import annotations
 
-from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from gymnasium import spaces
 import numpy as np
-from numpy.typing import NDArray
 import pytest
 
 from numberlink import GeneratorConfig, NumberLinkRGBEnv, RenderConfig, VariantConfig
-from numberlink.types import ActType
 
 from .helpers import base_render_config, save_gif
 from .test_utils import add_frame_border
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from numpy.random import Generator
+    from numpy.typing import NDArray
+
+    from numberlink.types import ActType
 
 
 @pytest.mark.visual
@@ -36,20 +41,24 @@ def test_solution_retrieval_and_gif(output_dir: Path) -> None:
     )
 
     obs, info = env.reset()
-    assert isinstance(obs, np.ndarray) and obs.dtype == np.uint8
-    assert obs.dtype == np.uint8 and obs.ndim == 3 and obs.shape[-1] == 3
+    assert isinstance(obs, np.ndarray)
+    assert obs.dtype == np.uint8
+    assert obs.ndim == 3
+    assert obs.shape[-1] == 3
     assert "action_mask" in info
 
     solution: list[ActType] | None = env.get_solution()
-    assert solution is not None and len(solution) > 0
+    assert solution is not None
+    assert len(solution) > 0
 
-    frames: list[NDArray[np.uint8]] = [add_frame_border(cast(NDArray[np.uint8], env.render()))]
+    frames: list[NDArray[np.uint8]] = [add_frame_border(cast("NDArray[np.uint8]", env.render()))]
     for act in solution:
         action_idx = int(act)  # coerce numpy scalar if present
-        obs, reward, terminated, truncated, info = env.step(action_idx)
-        assert isinstance(obs, np.ndarray) and obs.dtype == np.uint8
+        obs, _reward, terminated, truncated, info = env.step(action_idx)
+        assert isinstance(obs, np.ndarray)
+        assert obs.dtype == np.uint8
         rendered: NDArray[np.uint8] | list[NDArray[np.uint8]] | None = cast(
-            NDArray[np.uint8] | list[NDArray[np.uint8]] | None, env.render()
+            "NDArray[np.uint8] | list[NDArray[np.uint8]] | None", env.render()
         )
         assert rendered is not None
         frames.append(add_frame_border(rendered))
@@ -63,7 +72,7 @@ def test_solution_retrieval_and_gif(output_dir: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "mode_cfg,variant",
+    ("mode_cfg", "variant"),
     [
         (GeneratorConfig(mode="random_walk", width=5, height=5, colors=3, seed=1), VariantConfig()),
         (GeneratorConfig(mode="random_walk", width=6, height=6, colors=3, seed=2), VariantConfig(allow_diagonal=True)),
@@ -86,20 +95,23 @@ def test_env_basic_step(mode_cfg: GeneratorConfig, variant: VariantConfig) -> No
     rc: RenderConfig = base_render_config(mode_cfg.height, mode_cfg.width, font_max=None)
     env = NumberLinkRGBEnv(render_mode="rgb_array", generator=mode_cfg, variant=variant, render_config=rc)
     obs, info = env.reset()
-    assert isinstance(obs, np.ndarray) and obs.dtype == np.uint8
+    assert isinstance(obs, np.ndarray)
+    assert obs.dtype == np.uint8
     assert isinstance(env.action_space, spaces.Discrete)
-    assert env.action_space.n > 0
+    assert int(env.action_space.n) > 0
 
     # take a few random valid actions
-    mask: NDArray[np.uint8] = cast(NDArray[np.uint8], info["action_mask"])
+    mask: NDArray[np.uint8] = cast("NDArray[np.uint8]", info["action_mask"])
+    rng: Generator = np.random.default_rng(0)
     for _ in range(10):
         valid = np.where(mask > 0)[0]
         if valid.size == 0:
             break
-        a: int = np.random.default_rng().choice(valid)
-        obs, reward, terminated, truncated, info = env.step(a)
-        assert isinstance(obs, np.ndarray) and obs.dtype == np.uint8
-        mask = cast(NDArray[np.uint8], info["action_mask"])
+        a: int = int(rng.choice(valid))
+        obs, _reward, terminated, truncated, info = env.step(a)
+        assert isinstance(obs, np.ndarray)
+        assert obs.dtype == np.uint8
+        mask = cast("NDArray[np.uint8]", info["action_mask"])
         if terminated or truncated:
             break
     env.close()

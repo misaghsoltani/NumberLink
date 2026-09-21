@@ -92,6 +92,20 @@ pip install numberlink
 uv pip install numberlink
 ```
 
+#### Enable the human render mode
+
+Install the optional pygame dependency to enable the interactive viewer and the `human` render mode:
+
+```bash
+pip install "numberlink[human]"
+```
+
+With `uv`:
+
+```bash
+uv pip install "numberlink[human]"
+```
+
 #### Enable notebook integration
 
 Install the optional notebook dependencies to enable inline controls in Jupyter and Google Colab:
@@ -148,10 +162,7 @@ from numberlink import GeneratorConfig  # Importing from numberlink automaticall
 import numpy as np
 
 vec_env = gym.make_vec(
-    "NumberLinkRGB-v0",
-    num_envs=4,
-    render_mode="rgb_array",
-    generator=GeneratorConfig(width=6, height=6, colors=4),
+    "NumberLinkRGB-v0", num_envs=4, render_mode="rgb_array", generator=GeneratorConfig(width=6, height=6, colors=4)
 )
 
 observations, infos = vec_env.reset(seed=0)
@@ -176,9 +187,7 @@ viewer = NumberLinkViewer(env)
 viewer.loop()
 ```
 
-The pygame viewer mirrors the CLI command shown in
-[examples/run_human.py](https://github.com/misaghsoltani/NumberLink/blob/main/examples/run_human.py) and is documented
-at [viewer API](https://misaghsoltani.github.io/NumberLink/apidocs/numberlink/numberlink.viewer.html).
+The pygame viewer mirrors the CLI command shown in [examples/run_human.py](https://github.com/misaghsoltani/NumberLink/blob/main/examples/run_human.py) and is documented at [viewer API](https://misaghsoltani.github.io/NumberLink/apidocs/numberlink/numberlink.viewer.html). It requires the `human` extra, and `NumberLinkViewer` raises a `RuntimeError` naming the missing module when pygame is not installed.
 
 ### Notebook viewer
 
@@ -190,7 +199,13 @@ env = gym.make(
     render_mode="human",
     generator=GeneratorConfig(mode="hamiltonian", colors=7, width=8, height=8, min_path_length=3),
     variant=VariantConfig(must_fill=True, allow_diagonal=False, cell_switching_mode=False, bridges_enabled=False),
-    render_config=RenderConfig(gridline_color=(60, 60, 60),gridline_thickness=1,show_endpoint_numbers=True,render_height=400,render_width=400),
+    render_config=RenderConfig(
+        gridline_color=(60, 60, 60),
+        gridline_thickness=1,
+        show_endpoint_numbers=True,
+        render_height=400,
+        render_width=400,
+    ),
 )
 env.reset()
 
@@ -230,7 +245,7 @@ If you use NumberLink in your research, please cite:
   month        = oct,
   year         = 2025,
   publisher    = {Zenodo},
-  version      = {v0.1.6},
+  version      = {v0.1.7},
   doi          = {10.5281/zenodo.17450170},
   url          = {https://doi.org/10.5281/zenodo.17450170},
 } -->
@@ -243,7 +258,7 @@ If you use NumberLink in your research, please cite:
   month        = oct,
   year         = 2025,
   publisher    = {Zenodo},
-  version      = {v0.1.6},
+  version      = {v0.1.7},
   doi          = {10.5281/zenodo.17450170},
   url          = {https://doi.org/10.5281/zenodo.17450170},
 }

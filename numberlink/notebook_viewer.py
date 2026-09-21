@@ -25,10 +25,9 @@ construct it with a prepared environment and call :meth:`numberlink.notebook_vie
 from __future__ import annotations
 
 import contextlib
-from importlib import resources
+from importlib import import_module
 import io
-from pathlib import Path
-from typing import TYPE_CHECKING, NotRequired, TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 import numpy as np
 
@@ -36,8 +35,6 @@ from .env import NumberLinkRGBEnv
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from importlib.resources.abc import Traversable
-    from types import ModuleType
 
     import gymnasium as gym
     from IPython.display import DisplayHandle
@@ -51,6 +48,7 @@ if TYPE_CHECKING:
         Image as IpyImage,
         IntSlider,
         Layout,
+        Play,
         ToggleButton,
         ToggleButtons,
         VBox,
@@ -60,8 +58,8 @@ if TYPE_CHECKING:
     from .types import ActType, CellLane, Coord, RGBInt, Snapshot
 
 
-class DOMEvent(TypedDict, total=True):
-    """DOM event payload captured from the notebook front end.
+class DOMEventRequired(TypedDict, total=True):
+    """Required fields of the DOM event payload captured from the notebook front end.
 
     Events are emitted by ipyevents and forwarded to the viewer. Only fields required by the viewer are
     represented here. Values follow the browser event model and use the relative coordinate system set on the image
@@ -85,13 +83,10 @@ class DOMEvent(TypedDict, total=True):
     :vartype ctrlKey: bool
     :ivar altKey: Whether the Alt modifier was active.
     :vartype altKey: bool
-    :ivar button: Primary button identifier for pointer events where ``buttons`` may be zero.
-    :vartype button: int
     """
 
     type: str
     buttons: int
-    button: NotRequired[int]
     relativeX: float
     relativeY: float
     key: str
@@ -99,6 +94,16 @@ class DOMEvent(TypedDict, total=True):
     shiftKey: bool
     ctrlKey: bool
     altKey: bool
+
+
+class DOMEvent(DOMEventRequired, total=False):
+    """DOM event payload with the fields the front end only reports for some event types.
+
+    :ivar button: Primary button identifier for pointer events where ``buttons`` may be zero.
+    :vartype button: int
+    """
+
+    button: int
 
 
 class ObserveChange(TypedDict, total=True):
@@ -154,10 +159,10 @@ class NumberLinkNotebookViewer:
             raise ValueError(f"cell_size must be positive, got {cell_size}")
 
         try:
-            import ipyevents  # noqa: PLC0415
-            from IPython.display import display  # noqa: PLC0415
-            import ipywidgets as widgets  # noqa: PLC0415
-            from PIL import Image  # noqa: PLC0415
+            ipyevents = import_module("ipyevents")
+            display = import_module("IPython.display").display
+            widgets = import_module("ipywidgets")
+            image_module = import_module("PIL.Image")
         except ModuleNotFoundError as exc:
             missing: str = exc.name or "notebook"
             raise RuntimeError(
@@ -165,10 +170,10 @@ class NumberLinkNotebookViewer:
                 f" Missing module: {missing}."
             ) from exc
 
-        self._widgets: ModuleType = widgets
+        self._widgets = widgets
         self._display: Callable[..., DisplayHandle | None] = display
-        self._ipyevents: ModuleType = ipyevents
-        self._Image: ModuleType = Image
+        self._ipyevents = ipyevents
+        self._Image = image_module
         self.env: NumberLinkRGBEnv
         if isinstance(env, NumberLinkRGBEnv):
             self.env = env
@@ -188,8 +193,8 @@ class NumberLinkNotebookViewer:
         self.last_mouse_cell: Coord | None = None
         self._drag_active: bool = False
         self._suspend_widget_callbacks: bool = False
-        self._pixels_per_cell_h: int = max(1, self.env._pixels_per_cell_h)
-        self._pixels_per_cell_w: int = max(1, self.env._pixels_per_cell_w)
+        self._pixels_per_cell_h: int = max(1, self.env.pixels_per_cell_h)
+        self._pixels_per_cell_w: int = max(1, self.env.pixels_per_cell_w)
 
         self._status_label: HTML = widgets.HTML()
         self._message_label: HTML = widgets.HTML()
@@ -323,7 +328,7 @@ class NumberLinkNotebookViewer:
         )
 
         # Internal Play widget for automatic animation
-        self._replay_play_widget: widgets.Play = widgets.Play(
+        self._replay_play_widget: Play = widgets.Play(
             value=0, min=0, max=0, step=1, interval=self._replay_interval_ms, disabled=True, show_repeat=False
         )
 
@@ -349,23 +354,6 @@ class NumberLinkNotebookViewer:
         self._refresh_frame()
         self._display(self._root)
 
-    def _repr_svg_(self) -> str | None:  # noqa: PLW3201, PLR6301
-        """Return SVG preview for rich display in notebooks.
-
-        This special method is called by IPython's display system to show a preview thumbnail when the viewer object is
-        referenced in a notebook cell without calling :meth:`loop`. It reads and returns the content of the preview SVG
-        asset file.
-
-        :return: SVG markup as a string or ``None`` if the preview file cannot be read.
-        :rtype: str | None
-        """
-        try:
-            svg_resource: Traversable = resources.files("numberlink.assets").joinpath("notebook-viewer-preview.svg")
-            with resources.as_file(svg_resource) as svg_file:
-                return Path(svg_file).read_text(encoding="utf-8")
-        except Exception:
-            return None
-
     # UI composition
 
     def _compose_layout(self) -> None:
@@ -376,7 +364,7 @@ class NumberLinkNotebookViewer:
 
         :return: ``None``
         """
-        widgets: ModuleType = self._widgets
+        widgets = self._widgets
 
         color_row: HBox = widgets.HBox([self._prev_color_button, self._color_selector, self._next_color_button])
 
@@ -448,7 +436,7 @@ class NumberLinkNotebookViewer:
 
         :return: Configured ipywidgets Button instance.
         """
-        widgets: ModuleType = self._widgets
+        widgets = self._widgets
         btn: Button = widgets.Button(description=label, layout=size, disabled=not enabled)
 
         def _on_click(_: Button) -> None:
@@ -470,7 +458,7 @@ class NumberLinkNotebookViewer:
 
         :return: ipywidgets GridBox widget containing the direction pad.
         """
-        widgets: ModuleType = self._widgets
+        widgets = self._widgets
         allow_diagonal: bool = self.env.variant.allow_diagonal
         size: Layout = widgets.Layout(width="42px", height="42px")
 
@@ -522,11 +510,11 @@ class NumberLinkNotebookViewer:
         self._clear_button.on_click(wrap(self._handle_clear))
 
         # Help toggle
-        def _on_help_toggled(_: ToggleButton) -> None:
+        def _on_help_toggled(_: ObserveChange) -> None:
             self._help_html.layout.display = "block" if self._help_toggle.value else "none"
             # Note: Auto-hide is disabled since we're avoiding asyncio tasks
 
-        self._help_toggle.observe(lambda change: _on_help_toggled(self._help_toggle), names="value")
+        self._help_toggle.observe(_on_help_toggled, names="value")
 
         # Replay controls
         self._replay_play_btn.observe(self._on_replay_play_toggled, names="value")
@@ -546,7 +534,7 @@ class NumberLinkNotebookViewer:
 
         :return: ``None``
         """
-        self._pointer_events: ModuleType = self._ipyevents.Event(
+        self._pointer_events = self._ipyevents.Event(
             source=self._image_widget,
             watched_events=[
                 "mousedown",
@@ -573,7 +561,7 @@ class NumberLinkNotebookViewer:
 
         :return: ``None``
         """
-        self._keyboard_events: ModuleType = self._ipyevents.Event(
+        self._keyboard_events = self._ipyevents.Event(
             source=self._image_widget, watched_events=["keydown"], prevent_default_action=True
         )
         self._keyboard_events.on_dom_event(self._handle_key_event)
@@ -721,13 +709,13 @@ class NumberLinkNotebookViewer:
                 return
 
         # Global utilities
-        if k in {"r"}:
+        if k == "r":
             self._handle_reset()
             return
-        if k in {"g"} and self._can_generate_new_level():
+        if k == "g" and self._can_generate_new_level():
             self._handle_new_level()
             return
-        if k in {"h"}:
+        if k == "h":
             self._help_toggle.value = not self._help_toggle.value
             return
 
@@ -878,7 +866,7 @@ class NumberLinkNotebookViewer:
         self.sel_head = 0
         self.switch_mode = self.env.variant.cell_switching_mode
         if self.switch_mode:
-            free_cells: NDArray[np.intp] = np.argwhere(~self.env._endpoint_mask)
+            free_cells: NDArray[np.intp] = np.argwhere(~self.env.endpoint_mask)
             if free_cells.size > 0:
                 first: NDArray[np.intp] = free_cells[0]
                 self.cursor = [int(first[0]), int(first[1])]
@@ -895,7 +883,7 @@ class NumberLinkNotebookViewer:
         self._replay_solution = None
         self._replay_index = 0
         self._pre_replay_snapshot = None
-        self._replay_task = None
+        self._replay_task: None = None
         if not preserve_replay:
             self._suspend_widget_callbacks = True
             try:
@@ -922,8 +910,8 @@ class NumberLinkNotebookViewer:
 
     def _direction_index(self, dr: int, dc: int) -> int | None:
         """Translate a direction vector to an action index or return ``None`` when not found."""
-        for k in range(self.env._num_dirs):
-            if self.env._dirs[k][0] == dr and self.env._dirs[k][1] == dc:
+        for k in range(self.env.num_dirs):
+            if self.env.dirs[k][0] == dr and self.env.dirs[k][1] == dc:
                 return k
         return None
 
@@ -933,23 +921,23 @@ class NumberLinkNotebookViewer:
         if d_index is None or self.sel_color < 0 or self.sel_color >= self.env.num_colors:
             return
         self._ensure_color_ready_for_head()
-        base: int = self.sel_color * self.env._actions_per_color + self.sel_head * self.env._num_dirs
+        base: int = self.sel_color * self.env.actions_per_color + self.sel_head * self.env.num_dirs
         self.env.step(action=base + d_index)
 
     def _backtrack_selected(self) -> None:
         """Backtrack one step for the active color and head when possible."""
         if self.sel_color < 0 or self.sel_color >= self.env.num_colors:
             return
-        stacks: list[CellLane] = self.env._stacks[self.sel_color][self.sel_head]
+        stacks: list[CellLane] = self.env.stacks[self.sel_color][self.sel_head]
         if len(stacks) < 2:
             return
-        hr, hc = self.env._heads[self.sel_color][self.sel_head]
+        hr, hc = self.env.heads[self.sel_color][self.sel_head]
         pr, pc, _lane = stacks[-2]
         dr, dc = pr - hr, pc - hc
         d_index: int | None = self._direction_index(dr, dc)
         if d_index is None:
             return
-        base: int = self.sel_color * self.env._actions_per_color + self.sel_head * self.env._num_dirs
+        base: int = self.sel_color * self.env.actions_per_color + self.sel_head * self.env.num_dirs
         self.env.step(action=base + d_index)
 
     def _move_cursor(self, dr: int, dc: int) -> None:
@@ -966,17 +954,17 @@ class NumberLinkNotebookViewer:
             or row >= self.env.H
             or col < 0
             or col >= self.env.W
-            or self.env._endpoint_mask[row, col]
+            or self.env.endpoint_mask[row, col]
             or self.sel_color < 0
             or self.sel_color >= self.env.num_colors
         ):
             return
 
         desired_code: int = self.sel_color + 1
-        if not self.env._bridges[row, col]:
-            if int(self.env._grid_codes[row, col]) == desired_code:
+        if not self.env.bridges[row, col]:
+            if int(self.env.grid_codes[row, col]) == desired_code:
                 return
-        elif int(self.env._lane_v[row, col]) == desired_code and int(self.env._lane_h[row, col]) == desired_code:
+        elif int(self.env.lane_v[row, col]) == desired_code and int(self.env.lane_h[row, col]) == desired_code:
             return
 
         action: int = self.env.encode_cell_switching_action(row, col, desired_code)
@@ -985,13 +973,13 @@ class NumberLinkNotebookViewer:
     def _clear_selected_cell(self) -> None:
         """Clear any path value from the cell at the cursor in cell mode when not an endpoint."""
         row, col = self.cursor
-        if row < 0 or row >= self.env.H or col < 0 or col >= self.env.W or self.env._endpoint_mask[row, col]:
+        if row < 0 or row >= self.env.H or col < 0 or col >= self.env.W or self.env.endpoint_mask[row, col]:
             return
 
         currently_empty = (
-            int(self.env._grid_codes[row, col]) == 0
-            and int(self.env._lane_v[row, col]) == 0
-            and int(self.env._lane_h[row, col]) == 0
+            int(self.env.grid_codes[row, col]) == 0
+            and int(self.env.lane_v[row, col]) == 0
+            and int(self.env.lane_h[row, col]) == 0
         )
         if currently_empty:
             return
@@ -1010,7 +998,7 @@ class NumberLinkNotebookViewer:
         target_color: int | None = None
         target_head: int | None = None
 
-        for ci, endpoints in enumerate(self.env._endpoints):
+        for ci, endpoints in enumerate(self.env.endpoints):
             if endpoints[0] == (row, col):
                 target_color = ci
                 target_head = 0
@@ -1022,12 +1010,12 @@ class NumberLinkNotebookViewer:
 
         if target_color is None:
             for ci in range(self.env.num_colors):
-                head0_r, head0_c = self.env._heads[ci][0]
+                head0_r, head0_c = self.env.heads[ci][0]
                 if head0_r == row and head0_c == col:
                     target_color = ci
                     target_head = 0
                     break
-                head1_r, head1_c = self.env._heads[ci][1]
+                head1_r, head1_c = self.env.heads[ci][1]
                 if head1_r == row and head1_c == col:
                     target_color = ci
                     target_head = 1
@@ -1035,7 +1023,7 @@ class NumberLinkNotebookViewer:
 
         if target_color is None:
             for ci in range(self.env.num_colors):
-                stacks: list[list[CellLane]] = self.env._stacks[ci]
+                stacks: list[list[CellLane]] = self.env.stacks[ci]
                 chosen_head: int | None = None
                 tail_distance: int | None = None
                 for hi in (0, 1):
@@ -1054,9 +1042,9 @@ class NumberLinkNotebookViewer:
                     break
 
         if target_color is None:
-            if self.env._bridges[row, col]:
-                v_code = int(self.env._lane_v[row, col])
-                h_code = int(self.env._lane_h[row, col])
+            if self.env.bridges[row, col]:
+                v_code = int(self.env.lane_v[row, col])
+                h_code = int(self.env.lane_h[row, col])
                 preferred_code: int = self.sel_color + 1
                 lane_code: int = 0
                 if preferred_code in {v_code, h_code}:
@@ -1068,15 +1056,15 @@ class NumberLinkNotebookViewer:
                 if lane_code > 0:
                     target_color = lane_code - 1
             else:
-                color_code = int(self.env._grid_codes[row, col])
+                color_code = int(self.env.grid_codes[row, col])
                 if color_code > 0:
                     target_color = color_code - 1
 
             if target_color is not None:
-                head0: Coord = self.env._heads[target_color][0]
-                head1: Coord = self.env._heads[target_color][1]
-                dist0: int = self.env._metric((head0[0], head0[1]), (row, col))
-                dist1: int = self.env._metric((head1[0], head1[1]), (row, col))
+                head0: Coord = self.env.heads[target_color][0]
+                head1: Coord = self.env.heads[target_color][1]
+                dist0: int = self.env.metric((head0[0], head0[1]), (row, col))
+                dist1: int = self.env.metric((head1[0], head1[1]), (row, col))
                 target_head = 0 if dist0 <= dist1 else 1
 
         if target_color is None:
@@ -1101,13 +1089,13 @@ class NumberLinkNotebookViewer:
             return
         self._select_focus_for_cell(row, col)
         self._ensure_color_ready_for_head()
-        head_r, head_c = self.env._heads[self.sel_color][self.sel_head]
+        head_r, head_c = self.env.heads[self.sel_color][self.sel_head]
         dr: int = row - head_r
         dc: int = col - head_c
         if abs(dr) <= 1 and abs(dc) <= 1 and (dr != 0 or dc != 0):
             d_index: int | None = self._direction_index(dr, dc)
             if d_index is not None:
-                base: int = self.sel_color * self.env._actions_per_color + self.sel_head * self.env._num_dirs
+                base: int = self.sel_color * self.env.actions_per_color + self.sel_head * self.env.num_dirs
                 self.env.step(action=base + d_index)
 
     def _ensure_color_ready_for_head(self) -> None:
@@ -1119,10 +1107,10 @@ class NumberLinkNotebookViewer:
             return
         color: int = self.sel_color
         head: int = self.sel_head
-        stacks: list[list[CellLane]] = self.env._stacks[color]
+        stacks: list[list[CellLane]] = self.env.stacks[color]
         selected_stack: list[CellLane] = stacks[head]
         other_stack: list[CellLane] = stacks[1 - head]
-        if len(selected_stack) == 1 and len(other_stack) > 1 and not self.env._closed[color]:
+        if len(selected_stack) == 1 and len(other_stack) > 1 and not self.env.closed[color]:
             self.env.clear_color_path(color)
 
     # Environment helpers
@@ -1161,10 +1149,10 @@ class NumberLinkNotebookViewer:
         focus_label = f"Cursor ({self.cursor[0]}, {self.cursor[1]})" if self.switch_mode else f"Head {self.sel_head}"
 
         parts: list[str] = [mode_label, color_label, focus_label]
-        solved: bool = self.env._is_solved()
-        action_mask: NDArray[np.uint8] = self.env._compute_action_mask()
-        deadlocked: bool = self.env._is_deadlocked(action_mask, solved)
-        truncated: bool = self.env._steps >= self.env.max_steps and not solved and not deadlocked
+        solved: bool = self.env.is_solved()
+        action_mask: NDArray[np.uint8] = self.env.compute_action_mask()
+        deadlocked: bool = self.env.is_deadlocked(action_mask, solved)
+        truncated: bool = self.env.steps >= self.env.max_steps and not solved and not deadlocked
         if solved:
             parts.append("Solved ✅")
         elif deadlocked:
@@ -1228,21 +1216,21 @@ class NumberLinkNotebookViewer:
 
     def _refresh_frame(self) -> None:
         """Render the latest RGB frame, highlight selection and push it to the image widget."""
-        frame: NDArray[np.uint8] = self.env._render_rgb().copy()
+        frame: NDArray[np.uint8] = self.env.render_rgb().copy()
         self._pixels_per_cell_h = max(1, frame.shape[0] // self.env.H)
         self._pixels_per_cell_w = max(1, frame.shape[1] // self.env.W)
 
         if self.switch_mode:
             row, col = self.cursor
             highlight: RGBInt = self._resolve_color(
-                self.env._render_cfg.cursor_endpoint_highlight_color, default=(240, 230, 90)
+                self.env.render_cfg.cursor_endpoint_highlight_color, default=(240, 230, 90)
             )
-            thickness: int = max(1, self.env._render_cfg.cursor_highlight_thickness)
+            thickness: int = max(1, self.env.render_cfg.cursor_highlight_thickness)
             self._draw_cell_border(frame, row, col, highlight, thickness)
         elif 0 <= self.sel_color < self.env.num_colors:
-            hr, hc = self.env._heads[self.sel_color][self.sel_head]
-            highlight = self._resolve_color(self.env._render_cfg.active_head_highlight_color, default=(255, 255, 255))
-            thickness = max(1, self.env._render_cfg.active_head_highlight_thickness)
+            hr, hc = self.env.heads[self.sel_color][self.sel_head]
+            highlight = self._resolve_color(self.env.render_cfg.active_head_highlight_color, default=(255, 255, 255))
+            thickness = max(1, self.env.render_cfg.active_head_highlight_thickness)
             self._draw_cell_border(frame, hr, hc, highlight, thickness)
 
         buffer = io.BytesIO()
@@ -1251,6 +1239,7 @@ class NumberLinkNotebookViewer:
 
     def _on_image_value_change(self, change: ObserveChange) -> None:
         """Update widget properties when image data changes."""
+        del change
         self._image_widget.format = "png"
         # Set widget size based on the last known pixels-per-cell and grid size
         try:
@@ -1266,9 +1255,9 @@ class NumberLinkNotebookViewer:
         else:
             self._replay_info.value = ""
 
-        if self.env.render_mode in {"ansi", "human"} and self.env._render_cfg.print_text_in_human_mode:
+        if self.env.render_mode in {"ansi", "human"} and self.env.render_cfg.print_text_in_human_mode:
             with contextlib.suppress(Exception):
-                print(self.env._render_text())
+                print(self.env.render_text())
 
     def _draw_cell_border(self, frame: NDArray[np.uint8], row: int, col: int, color: RGBInt, thickness: int) -> None:
         """Draw a rectangular border around a grid cell in the rendered frame."""
@@ -1487,13 +1476,13 @@ class NumberLinkNotebookViewer:
     def _snapshot_state(self) -> Snapshot:
         """Capture a snapshot of environment and viewer state for replay restore and return it."""
         return {
-            "_grid_codes": self.env._grid_codes.copy(),
-            "_lane_v": self.env._lane_v.copy(),
-            "_lane_h": self.env._lane_h.copy(),
-            "_heads": [[(r, c) for (r, c) in heads] for heads in self.env._heads],
-            "_stacks": [[[(r, c, lane) for (r, c, lane) in arm] for arm in color] for color in self.env._stacks],
-            "_closed": self.env._closed.copy(),
-            "_steps": self.env._steps,
+            "_grid_codes": self.env.grid_codes.copy(),
+            "_lane_v": self.env.lane_v.copy(),
+            "_lane_h": self.env.lane_h.copy(),
+            "_heads": [[(r, c) for (r, c) in heads] for heads in self.env.heads],
+            "_stacks": [[[(r, c, lane) for (r, c, lane) in arm] for arm in color] for color in self.env.stacks],
+            "_closed": self.env.closed.copy(),
+            "_steps": self.env.steps,
             "sel_color": self.sel_color,
             "sel_head": self.sel_head,
             "switch_mode": self.switch_mode,
@@ -1502,13 +1491,13 @@ class NumberLinkNotebookViewer:
 
     def _restore_state(self, snap: Snapshot) -> None:
         """Restore a previously captured snapshot and refresh the UI."""
-        self.env._grid_codes[:, :] = snap["_grid_codes"]
-        self.env._lane_v[:, :] = snap["_lane_v"]
-        self.env._lane_h[:, :] = snap["_lane_h"]
-        self.env._heads = [[(r, c) for (r, c) in heads] for heads in snap["_heads"]]
-        self.env._stacks = [[[(r, c, lane) for (r, c, lane) in arm] for arm in color] for color in snap["_stacks"]]
-        self.env._closed[:] = snap["_closed"]
-        self.env._steps = snap["_steps"]
+        self.env.grid_codes[:, :] = snap["_grid_codes"]
+        self.env.lane_v[:, :] = snap["_lane_v"]
+        self.env.lane_h[:, :] = snap["_lane_h"]
+        self.env.heads = [[(r, c) for (r, c) in heads] for heads in snap["_heads"]]
+        self.env.stacks = [[[(r, c, lane) for (r, c, lane) in arm] for arm in color] for color in snap["_stacks"]]
+        self.env.closed[:] = snap["_closed"]
+        self.env.steps = snap["_steps"]
         self.sel_color = snap["sel_color"]
         self.sel_head = snap["sel_head"]
         self.switch_mode = snap["switch_mode"]

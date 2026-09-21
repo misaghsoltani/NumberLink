@@ -1,0 +1,10 @@
+MD033:
+  allowed_elements:
+    - br
+    - img
+    - p
+    - picture
+    - source
+
+MD013:
+  enabled: false

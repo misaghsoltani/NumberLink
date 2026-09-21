@@ -1,42 +1,39 @@
 {
-  "include": ["numberlink", "examples", "tests"],
-
-  "exclude": [
-    "**/.pixi/**",
-    "**/__pycache__/**",
-    "**/.pytest_cache/**",
-    "**/.mypy_cache/**",
-    "**/.ruff_cache/**",
-    "**/*.egg-info/**",
-    "**/build/**",
-    "**/dist/**",
-    "**/.git/**",
-    "**/.venv/**",
-    "**/node_modules/**",
-    "**/bower_components/**",
-    "**/logs/**",
-    "**/outputs/**",
-    "**/checkpoints/**",
-    "**/.cache/**",
-    "**/.tox/**",
-    "**/.eggs/**",
-    "**/docs/_*"
-    // "**/typings/**",
+  "include": [
+    "numberlink",
+    "examples",
+    "tests"
   ],
-
-  "ignore": ["tests/"],
-
-  // "defineConstant": {
-  //   "DEBUG": true
-  // },
-
-  //   "stubPath": "numberlink/stubs",
+  "exclude": [
+    "**/.*",
+    "**/.pixi",
+    "**/__pycache__",
+    "**/.pytest_cache",
+    "**/.mypy_cache",
+    "**/.ruff_cache",
+    "**/*.egg-info",
+    "**/build",
+    "**/dist",
+    "**/.git",
+    "**/.venv",
+    "**/node_modules",
+    "**/bower_components",
+    "**/logs",
+    "**/outputs",
+    "**/checkpoints",
+    "**/.cache",
+    "**/.tox",
+    "**/.eggs",
+    "**/docs/_*",
+  ],
+  "ignore": [
+    "tests/"
+  ],
   "reportUnnecessaryTypeIgnoreComment": "warning",
   "reportUnnecessaryCast": "warning",
   "reportUnnecessaryComparison": "warning",
   "reportUnnecessaryContains": "warning",
   "reportUnnecessaryIsInstance": "warning",
-  // "reportMissingSuperCall": "warning",
   "reportUnusedClass": "warning",
   "reportUnusedExpression": "warning",
   "reportCallIssue": "error",
@@ -61,16 +58,16 @@
   "reportUnusedImport": "warning",
   "enableReachabilityAnalysis": true,
   "deprecateTypingAliases": true,
-
-  //   "pythonPlatform": "Linux",
-
-  // Provide a conservative execution environment for the language server so it
-  // doesn't pick a bleeding-edge Python runtime. Use 3.12 which is supported
-  // by the project range and typically stable for the language server.
+  "pythonPlatform": "All",
+  "venvPath": ".pixi/envs",
+  "venv": "dev",
   "executionEnvironments": [
     {
-      "root": "./"
-      // "pythonVersion": "3.12"
+      "root": "numberlink",
+      "pythonVersion": "3.10",
+      "extraPaths": [
+        "."
+      ]
     }
   ]
 }

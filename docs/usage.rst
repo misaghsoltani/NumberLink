@@ -96,9 +96,12 @@ dict mirrors the single-environment keys but stores arrays of shape ``(num_envs,
 Viewer and Human Mode
 ---------------------
 
-The :mod:`numberlink.viewer` module provides a `pygame <https://www.pygame.org/>`_ viewer that mirrors the human render mode. It supports both mouse
-and keyboard control. Clicking any endpoint or occupied cell updates the focus to that color and head, so every path can
-be extended from either endpoint without using keyboard shortcuts.
+The :mod:`numberlink.viewer` module provides a `pygame <https://www.pygame.org/>`_ viewer that mirrors the human render mode.
+It supports both mouse and keyboard control. Clicking any endpoint or occupied cell updates the focus to that color and head,
+so every path can be extended from either endpoint without using keyboard shortcuts.
+
+The viewer needs the optional extra ``numberlink[human]``. Without it, :class:`numberlink.viewer.NumberLinkViewer`
+raises a :class:`RuntimeError` that names the missing module, and the rest of the package keeps working.
 
 .. code-block:: python
 

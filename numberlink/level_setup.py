@@ -10,19 +10,22 @@ produce reusable static data for a level before creating an environment with the
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 import numpy as np
-from numpy.typing import NDArray
 
 from .config import RenderConfig, RewardConfig, VariantConfig
 from .generator import generate_level
-from .levels import LEVELS, Level
+from .levels import LEVELS
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable, Sequence
+
+    from numpy.typing import NDArray
+
     from .config import GeneratorConfig
+    from .levels import Level
     from .types import Coord, RGBInt
 
 
@@ -304,7 +307,7 @@ def _generate_colors(num_colors: int) -> list[RGBInt]:
         (128, 128, 0),  # Olive
         (255, 215, 180),  # Coral
         (0, 0, 128),  # Navy
-        (128, 128, 128),  # Grey
+        (128, 128, 128),  # Gray
         (255, 255, 0),  # Yellow
         (0, 255, 255),  # Aqua
     ]
@@ -385,8 +388,7 @@ def _build_palette(
         distinguishable_colors: list[RGBInt] = _generate_colors(num_needed)
 
         # Assign generated colors to unassigned letters
-        for letter, color in zip(unassigned_letters, distinguishable_colors, strict=True):
-            palette_map[letter] = color
+        palette_map.update(dict(zip(unassigned_letters, distinguishable_colors, strict=True)))
 
     palette_arrays: list[NDArray[np.uint8]] = [np.array(palette_map[letter], dtype=np.uint8) for letter in letters]
     return palette_map, palette_arrays

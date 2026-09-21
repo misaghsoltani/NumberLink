@@ -24,11 +24,7 @@ from typing import TYPE_CHECKING, cast
 
 import gymnasium as gym
 from gymnasium import spaces
-from gymnasium.core import RenderFrame
 import numpy as np
-
-from numberlink.config import RenderConfig, RewardConfig, VariantConfig
-from numberlink.level_setup import LevelTemplate
 
 from .level_setup import build_level_template
 from .number_render import build_endpoint_labels, render_bitmap_text_centered
@@ -38,14 +34,25 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
     from typing import Any, TypeAlias
 
+    from gymnasium.core import RenderFrame
     from numpy.typing import NDArray
 
     from .config import GeneratorConfig, RenderConfig, RewardConfig, VariantConfig
     from .level_setup import LevelTemplate
     from .types import CellLane, Coord, Lane, RenderMode, RGBInt
 
-    InfoValue: TypeAlias = NDArray[np.uint8] | int | NDArray[np.bool_] | str | None | bool
-    InfoDict: TypeAlias = dict[str, InfoValue]
+
+InfoValue: TypeAlias = "NDArray[np.uint8] | int | NDArray[np.bool_] | str | bool | None"
+InfoDict: TypeAlias = dict[str, InfoValue]
+
+
+def _build_metadata() -> dict[str, list[str] | int]:
+    """Build metadata for the single-environment API.
+
+    Returns:
+        The supported render modes and frame rate.
+    """
+    return {"render_modes": ["rgb_array", "ansi", "human"], "render_fps": 30}
 
 
 class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
@@ -64,7 +71,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
     Internal NumPy arrays expose state for read only access. Do not mutate arrays returned by public methods.
     """
 
-    metadata: dict[str, list[str] | int] = {"render_modes": ["rgb_array", "ansi", "human"], "render_fps": 30}
+    metadata: dict[str, list[str] | int] = _build_metadata()
 
     _DIRS4: NDArray[np.int8] = np.array([[-1, 0], [0, 1], [1, 0], [0, -1]], dtype=np.int8)
     _DIRS8: NDArray[np.int8] = np.array(
@@ -157,6 +164,134 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
         # Convert coordinate solution to action sequence
         self._solution: list[ActType] | None = self._compute_solution_actions()
 
+    @property
+    def endpoint_mask(self) -> NDArray[np.bool_]:
+        """Endpoint mask for the current grid."""
+        return self._endpoint_mask
+
+    @property
+    def num_dirs(self) -> int:
+        """Number of available movement directions."""
+        return self._num_dirs
+
+    @property
+    def dirs(self) -> NDArray[np.int8]:
+        """Movement direction vectors."""
+        return self._dirs
+
+    @property
+    def actions_per_color(self) -> int:
+        """Number of actions assigned to each color."""
+        return self._actions_per_color
+
+    @property
+    def stacks(self) -> list[list[list[CellLane]]]:
+        """Current path stacks for every color and head."""
+        return self._stacks
+
+    @stacks.setter
+    def stacks(self, value: list[list[list[CellLane]]]) -> None:
+        """Set the current path stacks for every color and head."""
+        self._stacks = value
+
+    @property
+    def heads(self) -> list[list[Coord]]:
+        """Current head coordinates for every color."""
+        return self._heads
+
+    @heads.setter
+    def heads(self, value: list[list[Coord]]) -> None:
+        """Set the current head coordinates for every color."""
+        self._heads = value
+
+    @property
+    def bridges(self) -> NDArray[np.bool_]:
+        """Bridge mask for the current grid."""
+        return self._bridges
+
+    @property
+    def grid_codes(self) -> NDArray[np.unsignedinteger]:
+        """Regular-cell color codes."""
+        return self._grid_codes
+
+    @property
+    def lane_v(self) -> NDArray[np.unsignedinteger]:
+        """Vertical bridge-lane color codes."""
+        return self._lane_v
+
+    @property
+    def lane_h(self) -> NDArray[np.unsignedinteger]:
+        """Horizontal bridge-lane color codes."""
+        return self._lane_h
+
+    @property
+    def endpoints(self) -> list[tuple[Coord, Coord]]:
+        """Endpoint coordinates for every color."""
+        return self._endpoints
+
+    def metric(self, a: Coord, b: Coord) -> int:
+        """Return the distance between two coordinates."""
+        return self._metric(a, b)
+
+    @property
+    def closed(self) -> NDArray[np.bool_]:
+        """Connection status for every color."""
+        return self._closed
+
+    @property
+    def steps(self) -> int:
+        """Number of steps taken in the current episode."""
+        return self._steps
+
+    @steps.setter
+    def steps(self, value: int) -> None:
+        """Set the number of steps taken in the current episode."""
+        self._steps = value
+
+    @property
+    def render_cfg(self) -> RenderConfig:
+        """Active rendering configuration."""
+        return self._render_cfg
+
+    @property
+    def pixels_per_cell_h(self) -> int:
+        """Vertical pixel scale for each grid cell."""
+        return self._pixels_per_cell_h
+
+    @property
+    def pixels_per_cell_w(self) -> int:
+        """Horizontal pixel scale for each grid cell."""
+        return self._pixels_per_cell_w
+
+    @property
+    def palette_stack(self) -> NDArray[np.uint8]:
+        """Stacked palette colors."""
+        return self._palette_stack
+
+    def is_solved(self) -> bool:
+        """Return whether the current puzzle is solved."""
+        return self._is_solved()
+
+    def compute_action_mask(self) -> NDArray[np.uint8]:
+        """Return the current binary action mask."""
+        return self._compute_action_mask()
+
+    def is_deadlocked(self, action_mask: NDArray[np.uint8], solved: bool) -> bool:
+        """Return whether the current state has no valid action."""
+        return self._is_deadlocked(action_mask, solved)
+
+    def render_rgb(self) -> ObsType:
+        """Return the current RGB observation."""
+        return self._render_rgb()
+
+    def render_text(self) -> str:
+        """Return the current board as terminal text."""
+        return self._render_text()
+
+    def decode_cell_switching_action(self, a: int) -> RGBInt:
+        """Return the ``(row, col, color_value)`` triple encoded by a cell switching action index."""
+        return self._decode_cell_switching_action(a)
+
     def _apply_template(self, template: LevelTemplate) -> None:
         """Load derived attributes from a precomputed template."""
         self._template: LevelTemplate = template
@@ -224,6 +359,9 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
         self._num_dirs: int = template.num_dirs
         self._actions_per_color: int = template.actions_per_color
         self._dir_to_index: dict[Coord, int] = {(int(vec[0]), int(vec[1])): idx for idx, vec in enumerate(self._dirs)}
+        # Neighbor arithmetic uses plain ints so cell indices keep Python integer width. Adding an ``int8`` delta to
+        # an index would narrow it to ``int8`` under NumPy scalar promotion and break boards larger than 127 cells.
+        self._dir_offsets: tuple[Coord, ...] = tuple((int(vec[0]), int(vec[1])) for vec in self._dirs)
 
         self.action_space = spaces.Discrete(
             template.cell_switch_action_space_size if self.variant.cell_switching_mode else template.action_space_size
@@ -300,7 +438,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
                     action: ActType = self.encode_cell_switching_action(coord[0], coord[1], color_idx + 1)
                     actions.append(action)
 
-            return actions if actions else None
+            return actions or None
 
         # For path-building mode, convert coordinate paths to movement actions
         actions = []
@@ -337,7 +475,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
                 action_idx: ActType = color_idx * self._actions_per_color + head_idx * self._num_dirs + dir_idx
                 actions.append(action_idx)
 
-        return actions if actions else None
+        return actions or None
 
     # Gymnasium API
 
@@ -367,6 +505,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
             This method calls :meth:`numberlink.env.NumberLinkRGBEnv.render` when ``render_mode`` is set to
             ``'ansi'`` or ``'human'``.
         """
+        del options
         super().reset(seed=seed)
 
         self._grid_codes = np.zeros((self.H, self.W), dtype=self._color_code_dtype)
@@ -439,7 +578,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
         terminated: bool = False
         truncated: bool = self._steps >= self.max_steps
 
-        connected_before: np.bool_ = np.sum(self._closed)
+        connected_before: np.int_ = np.sum(self._closed)
         valid: bool = self._apply_action(action_index)
         if not valid:
             reward += self._reward_cfg.invalid_penalty
@@ -490,13 +629,13 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
         :rtype: RenderFrame or list[RenderFrame] or None
         """
         if self.render_mode == "rgb_array":
-            return cast(RenderFrame, self._render_rgb())
+            return cast("RenderFrame", self._render_rgb())
 
         if self.render_mode in {"ansi", "human"}:
             s: str = self._render_text()
             if self.render_mode == "human" and self._render_cfg.print_text_in_human_mode:
                 print(s)
-            return cast(RenderFrame, s)
+            return cast("RenderFrame", s)
 
         return None
 
@@ -506,7 +645,6 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
         This method is present for API compatibility with Gymnasium. Implementations may be a no op for in-memory
         stateful environments.
         """
-        pass
 
     def get_solution(self) -> list[ActType] | None:
         """Return the solution action sequence for the current level when available.
@@ -656,8 +794,8 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
         """
         if self.variant.cell_switching_mode:
             return self._apply_cell_switching_action(a)
-        else:
-            return self._apply_path_action(a)
+
+        return self._apply_path_action(a)
 
     def _apply_cell_switching_action(self, a: int) -> bool:
         """Apply a cell-switching action that assigns or clears a non-endpoint cell.
@@ -738,7 +876,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
             if (r, c) == goal:
                 return True
 
-            for dr, dc in self._dirs:
+            for dr, dc in self._dir_offsets:
                 nr: int = r + dr
                 nc: int = c + dc
                 if not (0 <= nr < self.H and 0 <= nc < self.W):
@@ -774,7 +912,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
             return False
         # Remove the check for _closed[ci] - allow actions even when connected
         head: Coord = self._heads[ci][hi]
-        dr, dc = self._dirs[d]
+        dr, dc = self._dir_offsets[d]
         nr, nc = head[0] + dr, head[1] + dc
         if not (0 <= nr < self.H and 0 <= nc < self.W):
             return False
@@ -918,7 +1056,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
                 r, c = queue.popleft()
                 if (r, c) == ep1:
                     found_other_endpoint = True
-                for dr, dc in self._dirs:
+                for dr, dc in self._dir_offsets:
                     nr: int = r + dr
                     nc: int = c + dc
                     if not (0 <= nr < self.H and 0 <= nc < self.W):
@@ -950,7 +1088,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
                 r = int(coord[0])
                 c = int(coord[1])
                 neighbor_count: int = 0
-                for dr, dc in self._dirs:
+                for dr, dc in self._dir_offsets:
                     nr = r + dr
                     nc = c + dc
                     if not (0 <= nr < self.H and 0 <= nc < self.W):
@@ -1162,7 +1300,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
             return mask
         mask.fill(0)
         num_dirs: int = self._num_dirs
-        dirs: NDArray[np.int8] = self._dirs
+        dir_offsets: tuple[Coord, ...] = self._dir_offsets
         bridges: NDArray[np.bool_] = self._bridges
         heads: list[list[Coord]] = self._heads
         stacks: list[list[list[CellLane]]] = self._stacks
@@ -1191,8 +1329,7 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
                 presence_other: NDArray[np.bool_] = presence_ci[other_hi]
                 base_index: int = base_color_index + hi * num_dirs
                 for d in range(num_dirs):
-                    dr_i: int = int(dirs[d][0])
-                    dc_i: int = int(dirs[d][1])
+                    dr_i, dc_i = dir_offsets[d]
                     nr: int = head_r + dr_i
                     nc: int = head_c + dc_i
                     if not (0 <= nr < self.H and 0 <= nc < self.W):
@@ -1459,8 +1596,8 @@ class NumberLinkRGBEnv(gym.Env[ObsType, ActType]):
         elif truncated:
             status_parts.append("Truncated")
 
-        rows.append(" | ".join(status_parts))
-        rows.append("-" * max(self.W * 2, len(rows[0])))
+        header: str = " | ".join(status_parts)
+        rows.extend((header, "-" * max(self.W * 2, len(header))))
 
         # Render grid
         for r in range(self.H):

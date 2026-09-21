@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Batch GIF exporter for NumberLink configurations.
 
 This script iterates over the Cartesian product of gameplay variant toggles and supported generator algorithms, captures
@@ -19,7 +20,6 @@ from PIL import Image, ImageDraw, ImageFont
 
 from numberlink.config import GeneratorConfig, RenderConfig, VariantConfig
 from numberlink.env import NumberLinkRGBEnv
-from numberlink.types import RGBInt
 
 if TYPE_CHECKING:
     from argparse import Namespace
@@ -28,7 +28,7 @@ if TYPE_CHECKING:
     from numpy.typing import NDArray
 
     from numberlink.env import InfoDict
-    from numberlink.types import ActType
+    from numberlink.types import ActType, RGBInt
 
 
 REPO_ROOT: Path = Path(__file__).resolve().parents[1]
@@ -41,8 +41,8 @@ PACKAGE_NAME: str = "numberlink"
 def _variant_combinations() -> Iterable[tuple[str, dict[str, bool]]]:
     """Yield (label, kwargs) pairs for every combination of VariantConfig toggles.
 
-    :yields: Tuple of label and kwargs for constructing a :class:`VariantConfig`.
-    :rtype: Iterable[tuple[str, dict[str, bool]]]
+    Yields:
+        Tuple of label and kwargs for constructing a :class:`VariantConfig`.
     """
     flag_values: list[tuple[str, tuple[bool, bool]]] = [
         ("must_fill", (False, True)),
@@ -83,13 +83,13 @@ def build_status_lines(env: NumberLinkRGBEnv, solved: bool, deadlocked: bool, tr
     else:
         header = "Status"
 
-    steps: int = int(getattr(env, "_steps", 0))
-    connected: int = int(np.sum(env._closed))
+    steps: int = int(env.steps)
+    connected: int = int(np.sum(env.closed))
     total_colors: int = int(env.num_colors)
     return [header, f"Steps: {steps}", f"Connected: {connected}/{total_colors}"]
 
 
-def draw_status_overlay(frame: np.ndarray, lines: list[str]) -> np.ndarray:
+def draw_status_overlay(frame: NDArray[np.uint8], lines: list[str]) -> NDArray[np.uint8]:
     """Draw a semi-transparent status overlay onto the provided RGB frame.
 
     :param frame: RGB image as a NumPy array (H x W x 3).
@@ -221,7 +221,7 @@ def generate_gifs(
                     step_limit=side * side * 4,
                 )
 
-                reset_seed: None | int = None if seed is None else seed + attempt_index
+                reset_seed: int | None = None if seed is None else seed + attempt_index
                 env.reset(seed=reset_seed)
                 break
 
@@ -235,12 +235,12 @@ def generate_gifs(
                 env.close()
                 continue
 
-            frames: list[NDArray[np.uint8]] = [env._render_rgb().copy()]
+            frames: list[NDArray[np.uint8]] = [env.render_rgb().copy()]
             final_info: InfoDict | None = None
             truncated_flag: bool = False
             for action in solution:
                 _, _, terminated, truncated_step, info = env.step(action)
-                frames.append(env._render_rgb().copy())
+                frames.append(env.render_rgb().copy())
                 final_info = info
                 truncated_flag = truncated_step
                 if terminated or truncated_step:
@@ -250,11 +250,11 @@ def generate_gifs(
                 solved_flag: bool = bool(final_info.get("solved", False))
                 deadlocked_flag: bool = bool(final_info.get("deadlocked", False))
             else:
-                solved_flag = bool(env._is_solved())
-                action_mask: np.ndarray = env._compute_action_mask()
-                deadlocked_flag = bool(env._is_deadlocked(action_mask, solved_flag))
+                solved_flag = bool(env.is_solved())
+                action_mask: NDArray[np.uint8] = env.compute_action_mask()
+                deadlocked_flag = bool(env.is_deadlocked(action_mask, solved_flag))
 
-            truncated_flag = truncated_flag or (env._steps >= env.max_steps and not solved_flag and not deadlocked_flag)
+            truncated_flag = truncated_flag or (env.steps >= env.max_steps and not solved_flag and not deadlocked_flag)
             status_lines: list[str] = build_status_lines(env, solved_flag, deadlocked_flag, truncated_flag)
             frames[-1] = draw_status_overlay(frames[-1], status_lines)
 

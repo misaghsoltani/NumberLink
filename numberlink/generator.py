@@ -12,10 +12,12 @@ See individual function docstrings for algorithmic notes and usage details.
 from __future__ import annotations
 
 from dataclasses import replace
+import itertools
 from typing import TYPE_CHECKING
 
 import numpy as np
 
+from .config import VariantConfig
 from .levels import Level
 
 if TYPE_CHECKING:
@@ -24,7 +26,7 @@ if TYPE_CHECKING:
     from numpy.random import Generator
     from numpy.typing import NDArray
 
-    from .config import GeneratorConfig, VariantConfig
+    from .config import GeneratorConfig
     from .types import Coord
 
 DIR_STEPS: tuple[Coord, ...] = ((-1, 0), (0, 1), (1, 0), (0, -1))
@@ -56,10 +58,9 @@ def generate_level(cfg: GeneratorConfig, *, variant: VariantConfig | None = None
 
     if cfg.mode == "hamiltonian":
         return _gen_hamiltonian_partition(cfg, variant=variant)
-    elif cfg.mode == "random_walk":
+    if cfg.mode == "random_walk":
         return _gen_random_walk(cfg, variant=variant)
-    else:
-        raise ValueError(f"Unknown generator mode: {cfg.mode}. Must be 'hamiltonian' or 'random_walk'.")
+    raise ValueError(f"Unknown generator mode: {cfg.mode}. Must be 'hamiltonian' or 'random_walk'.")
 
 
 def _gen_hamiltonian_partition(
@@ -180,7 +181,7 @@ def _paths_cover_grid(paths: list[list[Coord]], height: int, width: int) -> bool
 
 
 def _build_neighbor_map(height: int, width: int) -> dict[Coord, list[Coord]]:
-    """Precompute orthogonal neighbours for every cell in the grid.
+    """Precompute orthogonal neighbors for every cell in the grid.
 
     :param height: Number of grid rows.
     :type height: int
@@ -193,7 +194,7 @@ def _build_neighbor_map(height: int, width: int) -> dict[Coord, list[Coord]]:
     range_h: range = range(height)
     range_w: range = range(width)
 
-    # return neighbours
+    # return neighbors
     return {
         (r, c): [(nr, nc) for dr, dc in steps if 0 <= (nr := r + dr) < height and 0 <= (nc := c + dc) < width]
         for r in range_h
@@ -220,7 +221,7 @@ def _random_hamiltonian_path(height: int, width: int, rng: Generator, *, attempt
     :rtype: list[Coord] or None
     """
     total_cells: int = height * width
-    neighbours: dict[Coord, list[Coord]] = _build_neighbor_map(height, width)
+    neighbors: dict[Coord, list[Coord]] = _build_neighbor_map(height, width)
 
     max_steps: int = max(total_cells * 64, 4096)
 
@@ -232,7 +233,7 @@ def _random_hamiltonian_path(height: int, width: int, rng: Generator, *, attempt
         path: list[Coord] = [start]
         visited: set[Coord] = {start}
         steps[0] = 0
-        if _hamiltonian_backtrack(path, visited, neighbours, total_cells, max_steps, steps, rng):
+        if _hamiltonian_backtrack(path, visited, neighbors, total_cells, max_steps, steps, rng):
             return path
 
     return None
@@ -241,7 +242,7 @@ def _random_hamiltonian_path(height: int, width: int, rng: Generator, *, attempt
 def _hamiltonian_backtrack(
     path: list[Coord],
     visited: set[Coord],
-    neighbours: dict[Coord, list[Coord]],
+    neighbors: dict[Coord, list[Coord]],
     total_cells: int,
     max_steps: int,
     steps: list[int],
@@ -257,8 +258,8 @@ def _hamiltonian_backtrack(
     :type path: list[Coord]
     :param visited: Set of visited coordinates.
     :type visited: set[Coord]
-    :param neighbours: Mapping from a coordinate to its orthogonal neighbours.
-    :type neighbours: dict[Coord, list[Coord]]
+    :param neighbors: Mapping from a coordinate to its orthogonal neighbors.
+    :type neighbors: dict[Coord, list[Coord]]
     :param total_cells: Total number of cells to cover.
     :type total_cells: int
     :param max_steps: Maximum allowed search steps to limit runtime.
@@ -279,7 +280,7 @@ def _hamiltonian_backtrack(
 
     current: Coord = path[-1]
     vis: set[Coord] = visited
-    neigh: dict[Coord, list[Coord]] = neighbours
+    neigh: dict[Coord, list[Coord]] = neighbors
 
     # Degree buckets (onward move counts are in [0, 4] on an orthogonal grid)
     b0: list[Coord] = []
@@ -563,7 +564,7 @@ def _apply_random_orientation(level: Level, rng: Generator) -> Level:
             new_bridges = nb
 
     new_grid: list[str] = ["".join(row) for row in new_grid_matrix]
-    return Level(grid=new_grid, bridges=new_bridges if new_bridges else None, solution=new_solution)
+    return Level(grid=new_grid, bridges=new_bridges or None, solution=new_solution)
 
 
 def _enhance_variability(level: Level, rng: Generator) -> Level:
@@ -965,7 +966,7 @@ def _validate_segments(segments: list[list[Coord]], seg_map: NDArray[np.int16], 
             raise ValueError(f"Segment {idx} is shorter than the minimum requirement")
 
         # Check contiguity and adjacency distances
-        for a, b in zip(segment, segment[1:], strict=False):
+        for a, b in itertools.pairwise(segment):
             if not _are_adjacent(a, b):
                 raise ValueError(f"Segment {idx} is not contiguous")
 
@@ -1191,13 +1192,15 @@ def _gen_random_walk(cfg: GeneratorConfig, *, variant: VariantConfig) -> Level:
 
                     # (A and B) or (C and D)
                     if len(path_stack) > 1:
-                        for nbr in cell_nbrs:
-                            if (nbr not in occupied_by_walks and nbr not in used_endpoints) or (nbr == start_cell):
-                                valid_nbrs.append(nbr)
+                        valid_nbrs.extend(
+                            nbr
+                            for nbr in cell_nbrs
+                            if (nbr not in occupied_by_walks and nbr not in used_endpoints) or (nbr == start_cell)
+                        )
                     else:
-                        for nbr in cell_nbrs:
-                            if (nbr not in occupied_by_walks) and (nbr not in used_endpoints):
-                                valid_nbrs.append(nbr)
+                        valid_nbrs.extend(
+                            nbr for nbr in cell_nbrs if (nbr not in occupied_by_walks) and (nbr not in used_endpoints)
+                        )
 
                     if not valid_nbrs:
                         if len(path_stack) < min_dist:
